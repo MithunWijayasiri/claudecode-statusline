@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 
 $HOOKS_DIR = "$env:USERPROFILE\.claude\hooks"
 $SETTINGS_FILE = "$env:USERPROFILE\.claude\settings.json"
-$REPO_URL = "https://raw.githubusercontent.com/TahaSabir0/claude-statusline/main"
+$REPO_URL = "https://raw.githubusercontent.com/MithunWijayasiri/claudecode-statusline/main"
 
 Write-Host "======================================" -ForegroundColor Cyan
 Write-Host "  Claude Code Statusline Installer" -ForegroundColor Cyan
@@ -21,31 +21,11 @@ if (-not (Test-Path "$env:USERPROFILE\.claude")) {
 # Create hooks directory if it doesn't exist
 New-Item -ItemType Directory -Force -Path $HOOKS_DIR | Out-Null
 
-# Prompt user for version choice
-Write-Host "Which version would you like to install?"
-Write-Host "  1) Full version (with API usage tracking)"
-Write-Host "  2) Lite version (faster, no API calls)"
-Write-Host ""
-$choice = Read-Host "Enter your choice (1 or 2)"
-
-switch ($choice) {
-    "1" {
-        $SCRIPT_NAME = "statusline.js"
-        $VERSION_NAME = "Full version"
-    }
-    "2" {
-        $SCRIPT_NAME = "statusline-lite.js"
-        $VERSION_NAME = "Lite version"
-    }
-    default {
-        Write-Host "Invalid choice. Exiting." -ForegroundColor Red
-        exit 1
-    }
-}
+$SCRIPT_NAME = "statusline.js"
 
 # Download the script
 Write-Host ""
-Write-Host "Downloading $VERSION_NAME..." -ForegroundColor Yellow
+Write-Host "Downloading statusline..." -ForegroundColor Yellow
 
 try {
     $url = "$REPO_URL/$SCRIPT_NAME"
@@ -100,13 +80,9 @@ Write-Host "Next steps:"
 Write-Host "  1. Restart Claude Code or start a new session"
 Write-Host "  2. Your statusline should now be active!"
 Write-Host ""
-Write-Host "To switch versions:"
-Write-Host "  - Run this installer again, or"
-Write-Host "  - Edit ~/.claude/settings.json manually"
-Write-Host ""
 Write-Host "To uninstall:"
 Write-Host "  - Remove ~/.claude/hooks/$SCRIPT_NAME"
 Write-Host "  - Remove the 'statusLine' section from ~/.claude/settings.json"
 Write-Host ""
-Write-Host "For help, visit: https://github.com/TahaSabir0/claude-statusline"
+Write-Host "For help, visit: https://github.com/MithunWijayasiri/claudecode-statusline"
 Write-Host ""

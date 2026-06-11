@@ -19,13 +19,13 @@ There are only two things that really matter when vibe-coding: **Context Window*
 ### Quick Install (Recommended)
 
 ```bash
-npx claude-best-statusline
+npx claudecode-statusline
 ```
 
 Or with bun:
 
 ```bash
-bunx claude-best-statusline
+bunx claudecode-statusline
 ```
 
 Restart Claude Code or start a new session.
@@ -33,8 +33,8 @@ Restart Claude Code or start a new session.
 ### Clone & Install
 
 ```bash
-git clone https://github.com/TahaSabir0/claude-statusline.git
-cd claude-statusline
+git clone https://github.com/MithunWijayasiri/claudecode-statusline.git
+cd claudecode-statusline
 
 # macOS / Linux
 ./install.sh
@@ -48,7 +48,7 @@ cd claude-statusline
 1. **Download the script:**
 
    ```bash
-   curl -o ~/.claude/hooks/statusline.js https://raw.githubusercontent.com/TahaSabir0/claude-statusline/main/statusline.js
+   curl -o ~/.claude/hooks/statusline.js https://raw.githubusercontent.com/MithunWijayasiri/claudecode-statusline/main/statusline.js
    ```
 
 2. **Make it executable:**
@@ -116,7 +116,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Credits
 
-Created by [@TahaSabir0](https://github.com/TahaSabir0)
+Created by [@MithunWijayasiri](https://github.com/MithunWijayasiri)
 
 Built for the [Claude Code](https://github.com/anthropics/claude-code) community.
 

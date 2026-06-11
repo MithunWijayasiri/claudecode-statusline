@@ -1,10 +1,17 @@
 {
-  "name": "claude-best-statusline",
-  "version": "1.0.1",
+  "name": "claudecode-statusline",
+  "version": "1.0.0",
   "description": "A customizable statusline for Claude Code that tracks context usage and session limits",
   "bin": {
-    "claude-best-statusline": "bin/install.js"
+    "claudecode-statusline": "bin/install.js"
   },
+  "files": [
+    "bin/",
+    "statusline.js",
+    "README.md",
+    "LICENSE",
+    "preview.png"
+  ],
   "keywords": [
     "claude",
     "claude-code",
@@ -12,10 +19,14 @@
     "vibe-coding",
     "context-window"
   ],
-  "author": "TahaSabir0",
+  "author": "Mithun Wijayasiri",
   "license": "MIT",
+  "homepage": "https://github.com/MithunWijayasiri/claudecode-statusline#readme",
+  "bugs": {
+    "url": "https://github.com/MithunWijayasiri/claudecode-statusline/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/TahaSabir0/claude-statusline"
+    "url": "https://github.com/MithunWijayasiri/claudecode-statusline.git"
   }
 }
