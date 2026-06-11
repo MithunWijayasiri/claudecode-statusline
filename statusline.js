@@ -15,6 +15,10 @@ const IS_API_KEY = !!process.env.ANTHROPIC_API_KEY;
 // Shared width (cells) for all progress bars: context, current, weekly.
 const BAR_WIDTH = 6;
 
+// Max characters shown for the git branch; longer names are tail-truncated with "…".
+// Tail-truncation keeps the start (ticket IDs like "TAMA5-32796" live there) visible.
+const MAX_BRANCH_LEN = 24;
+
 // Cache configuration
 const CACHE_DIR = path.join(os.homedir(), '.claude', 'cache');
 const USAGE_CACHE_FILE = path.join(CACHE_DIR, 'usage-cache.json');
@@ -33,8 +37,19 @@ const colors = {
   yellow: '\x1b[33m',
   orange: '\x1b[38;5;208m',
   red: '\x1b[31m',
+  purple: '\x1b[38;5;135m',
   blink: '\x1b[5m'
 };
+
+// Color for the thinking-effort indicator. Levels rank low < medium < high < xhigh < max
+// < ultracode; only the top two are highlighted — "max" red, "ultracode" purple. Every
+// other level (including xhigh) renders dim like the rest of the metadata.
+function getEffortColor(level) {
+  const lvl = String(level).toLowerCase();
+  if (lvl === 'max') return colors.red;
+  if (lvl === 'ultracode') return colors.purple;
+  return colors.dim;
+}
 
 function getUsageColor(percentage) {
   if (percentage < 50) return colors.green;
@@ -48,11 +63,50 @@ function shortenModel(name) {
   return name.replace(/\s+context\)/i, ')');
 }
 
+// Tail-truncate an over-long branch name, preserving the leading ticket ID.
+function truncateBranch(name) {
+  return name.length > MAX_BRANCH_LEN ? name.slice(0, MAX_BRANCH_LEN - 1) + '…' : name;
+}
+
+// Resolve the current git branch by reading .git/HEAD directly (no `git` subprocess —
+// keeps the render fast and dependency-free). Walks up from `dir` to find the repo,
+// handles worktrees (.git as a file) and detached HEAD (short sha). Best-effort: '' on any failure.
+function getGitBranch(dir) {
+  try {
+    let cur = dir;
+    let gitPath = '';
+    for (let i = 0; i < 50 && cur; i++) {
+      const candidate = path.join(cur, '.git');
+      if (fs.existsSync(candidate)) { gitPath = candidate; break; }
+      const parent = path.dirname(cur);
+      if (parent === cur) break;        // reached filesystem root
+      cur = parent;
+    }
+    if (!gitPath) return '';
+
+    let gitDir = gitPath;
+    if (fs.statSync(gitPath).isFile()) {
+      // Worktree/submodule: ".git" is a file like "gitdir: /path/to/.git/worktrees/x".
+      const m = fs.readFileSync(gitPath, 'utf8').match(/gitdir:\s*(.+)/);
+      if (!m) return '';
+      gitDir = path.resolve(path.dirname(gitPath), m[1].trim());
+    }
+
+    const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
+    const ref = head.match(/^ref:\s*refs\/heads\/(.+)$/);
+    if (ref) return truncateBranch(ref[1]);
+    if (/^[0-9a-f]{7,40}$/i.test(head)) return head.slice(0, 7);  // detached HEAD -> short sha
+    return '';
+  } catch (e) {
+    return '';
+  }
+}
+
 function getContextBar(remaining) {
   const effectiveRemaining = remaining ?? 100;
   const used = Math.max(0, Math.min(100, 100 - Math.round(effectiveRemaining)));
 
-  const filled = Math.floor((used / 100) * BAR_WIDTH);
+  const filled = Math.round((used / 100) * BAR_WIDTH);
   const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(BAR_WIDTH - filled);
 
   let coloredBar;
@@ -309,14 +363,16 @@ function outputStatus(data, usage) {
     const model = shortenModel(data?.model?.display_name || 'Claude');
     const dir = data?.workspace?.current_dir || process.cwd();
     const dirname = path.basename(dir);
+    const branch = getGitBranch(dir);
+    const effort = data?.effort?.level || '';
     const sessionId = data?.session_id || '';
     const remaining = data?.context_window?.remaining_percentage;
 
     const contextBar = getContextBar(remaining);
     const task = getCurrentTask(sessionId);
     const parts = [];
-    parts.push(dirname);
-    parts.push(model);
+    parts.push(branch ? `${dirname} ${colors.dim}⎇ ${branch}${colors.reset}` : dirname);
+    parts.push(effort ? `${model}${getEffortColor(effort)} · ${effort}${colors.reset}` : model);
     parts.push(`CTX ${contextBar}`);
 
     if (usage?.current) parts.push(`5h ${usage.current}`);

@@ -55,13 +55,24 @@ function seedHome({ cacheAgeMs, percentage = 42, weeklyPercentage = 31 } = {}) {
   return home;
 }
 
-function fixture(remaining, dir = '/tmp/myproject', model = 'Opus 4.8') {
-  return JSON.stringify({
+function fixture(remaining, dir = '/tmp/myproject', model = 'Opus 4.8', effort) {
+  const obj = {
     model: { display_name: model },
     workspace: { current_dir: dir },
     session_id: 'test-session',
     context_window: { remaining_percentage: remaining }
-  });
+  };
+  if (effort) obj.effort = { level: effort };
+  return JSON.stringify(obj);
+}
+
+// Make a real dir with a seeded .git/HEAD so the branch segment renders deterministically.
+function seedRepo(branch = 'feature/x') {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-repo-'));
+  fs.mkdirSync(path.join(dir, '.git'));
+  fs.writeFileSync(path.join(dir, '.git', 'HEAD'), `ref: refs/heads/${branch}\n`);
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  return dir;
 }
 
 // ANSI color codes the script emits (kept in sync with statusline.js `colors`).
@@ -69,6 +80,8 @@ const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
 const ORANGE = '\x1b[38;5;208m';
 const RED = '\x1b[31m';
+const PURPLE = '\x1b[38;5;135m';
+const DIM = '\x1b[2m';
 const BLINK = '\x1b[5m';
 
 test('line assembly: dir basename | model | context, separated by │', () => {
@@ -84,6 +97,90 @@ test('model name is shortened: "(1M context)" -> "(1M)"', () => {
   const { clean } = run(fixture(40, '/home/me/p', 'Opus 4.8 (1M context)'));
   const parts = clean.split(' │ ');
   assert.strictEqual(parts[1], 'Opus 4.8 (1M)');
+});
+
+test('git branch renders next to the dir (⎇ <branch>)', () => {
+  const repo = seedRepo('feature/x');
+  const { clean } = run(fixture(40, repo));
+  const parts = clean.split(' │ ');
+  assert.match(parts[0], /⎇ feature\/x$/);              // branch glued to dir segment
+  assert.ok(parts[0].startsWith(path.basename(repo)));  // dir basename still first
+});
+
+test('short ticket branch is not truncated (TAMA5-32796 stays whole)', () => {
+  const repo = seedRepo('TAMA5-32796');
+  const { clean } = run(fixture(40, repo));
+  assert.match(clean, /⎇ TAMA5-32796 /);                 // intact, no ellipsis
+});
+
+test('over-long branch is tail-truncated to 24 chars with …', () => {
+  const repo = seedRepo('TAMA5-32796-add-login-form-and-tests');
+  const { clean } = run(fixture(40, repo));
+  const parts = clean.split(' │ ');
+  const m = parts[0].match(/⎇ (.+)$/);
+  assert.ok(m, 'branch segment present');
+  assert.strictEqual(m[1].length, 24);                   // 23 chars + …
+  assert.ok(m[1].endsWith('…'));
+  assert.ok(m[1].startsWith('TAMA5-32796'));             // ticket ID preserved
+});
+
+test('no .git -> no branch glyph in dir segment', () => {
+  const { clean } = run(fixture(40, '/no/such/repo/here'));
+  const parts = clean.split(' │ ');
+  assert.ok(!parts[0].includes('⎇'), 'branch glyph should be absent without a repo');
+});
+
+test('detached HEAD -> short 7-char SHA', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-detach-'));
+  fs.mkdirSync(path.join(dir, '.git'));
+  fs.writeFileSync(path.join(dir, '.git', 'HEAD'), 'abc1234567890abcdef1234567890abcdef12345\n'); // 40-char SHA
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const { clean } = run(fixture(40, dir));
+  assert.match(clean.split(' │ ')[0], /⎇ abc1234$/);   // first 7 chars of the SHA
+});
+
+test('worktree (.git is a file with gitdir:) -> branch still renders', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-wt-'));
+  const gitdir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-wtgit-'));
+  fs.writeFileSync(path.join(gitdir, 'HEAD'), 'ref: refs/heads/feature/wt\n');
+  fs.writeFileSync(path.join(dir, '.git'), `gitdir: ${gitdir}\n`); // .git as a file pointer
+  after(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(gitdir, { recursive: true, force: true });
+  });
+  const { clean } = run(fixture(40, dir));
+  assert.match(clean.split(' │ ')[0], /⎇ feature\/wt$/);
+});
+
+test('thinking effort renders next to the model (· <level>)', () => {
+  const { clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8', 'high'));
+  const parts = clean.split(' │ ');
+  assert.match(parts[1], /Opus 4\.8 · high$/);
+});
+
+test('no effort field -> model segment unchanged', () => {
+  const { clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8'));
+  const parts = clean.split(' │ ');
+  assert.strictEqual(parts[1], 'Opus 4.8');
+});
+
+test('effort = max is red', () => {
+  const { raw, clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8', 'max'));
+  assert.strictEqual(clean.split(' │ ')[1], 'Opus 4.8 · max');
+  assert.ok(raw.includes(RED), 'expected red for max effort');
+});
+
+test('effort = ultracode is purple', () => {
+  const { raw, clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8', 'ultracode'));
+  assert.strictEqual(clean.split(' │ ')[1], 'Opus 4.8 · ultracode');
+  assert.ok(raw.includes(PURPLE), 'expected purple for ultracode effort');
+});
+
+test('effort = xhigh is dim (not highlighted red/purple)', () => {
+  const { raw, clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8', 'xhigh'));
+  assert.strictEqual(clean.split(' │ ')[1], 'Opus 4.8 · xhigh');
+  assert.ok(raw.includes(DIM), 'xhigh effort uses the dim style');
+  assert.ok(!raw.includes(PURPLE) && !raw.includes(RED), 'xhigh must not be highlighted');
 });
 
 test('context bar shows used% = 100 - remaining', () => {

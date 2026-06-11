@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Claude Code Statusline — Everything that matters, on one line.</title>
-<meta name="description" content="A lightweight, zero-config statusline for Claude Code. Monitor context usage, 5-hour session limits, and weekly allowance without leaving Claude Code.">
+<title>ctxline · claude</title>
+<meta name="description" content="A lightweight, zero-config statusline for Claude Code.">
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
@@ -88,9 +88,9 @@
   .hero h1{
     font-family:var(--sans);
     font-weight:800;
-    font-size:clamp(34px,6.2vw,62px);
-    line-height:1.04;
-    letter-spacing:-.025em;
+    font-size:clamp(38px,6.8vw,72px);
+    line-height:1.03;
+    letter-spacing:-.028em;
     max-width:15ch;
     margin:0 auto;
   }
@@ -172,7 +172,7 @@
   }
   .copy:hover{background:#322e22;color:#fff}
   .copy.done{color:var(--green);border-color:var(--green-dim)}
-  .install small{display:block;margin-top:16px;color:var(--muted);font-family:var(--mono);font-size:12.5px}
+  .install small,.hero small{display:block;margin-top:16px;color:var(--muted);font-family:var(--mono);font-size:12.5px}
 
   /* sections */
   section.block{padding:72px 0 0}
@@ -193,6 +193,26 @@
   .feat .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700}
   .feat h3{margin:7px 0 5px;font-size:16px;font-weight:700;letter-spacing:-.01em}
   .feat p{color:var(--muted);font-size:13.5px;line-height:1.5}
+
+  /* inspector (features) — hover a segment, the panel below explains it */
+  .inspect{max-width:900px;margin:0 auto}
+  .inspect .term{margin:0}
+  .insp-line{flex-wrap:wrap;row-gap:7px}
+  .insp-seg{cursor:pointer;position:relative;white-space:nowrap;padding:4px 1px;border-radius:4px;transition:color .18s,opacity .18s}
+  .insp-line:hover .insp-seg{opacity:.5}
+  .insp-seg:hover,.insp-seg.sel{color:#fff;opacity:1}
+  .insp-seg:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;opacity:1}
+  .insp-seg.sel::after{content:"";position:absolute;left:3px;right:3px;bottom:-3px;height:2px;background:var(--accent);border-radius:2px}
+  .insp-panel{margin-top:26px;display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;
+    background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px 26px;transition:border-color .2s}
+  .insp-badge{font-family:var(--mono);font-weight:700;letter-spacing:.12em;font-size:13px;color:var(--bg);
+    background:var(--ink);border-radius:14px;padding:20px 16px;min-width:96px;text-align:center}
+  .insp-body h3{font-size:21px;font-weight:800;letter-spacing:-.015em}
+  .insp-body p{color:var(--muted);font-size:14.5px;margin:6px 0 12px}
+  .insp-field{font-family:var(--mono);font-size:12.5px;color:var(--accent);background:var(--bg);
+    border:1px solid var(--line);border-radius:7px;padding:5px 10px;display:inline-block}
+  .insp-hint{text-align:center;font-family:var(--mono);font-size:12px;color:var(--faint);margin:16px 0 0}
+  @media(max-width:520px){.insp-panel{grid-template-columns:1fr;text-align:center;justify-items:center}}
 
   /* how it works */
   .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
@@ -218,7 +238,7 @@
   summary::after{content:"+";font-family:var(--mono);color:var(--accent);font-size:20px;transition:transform .2s;flex:none}
   details[open] summary::after{transform:rotate(45deg)}
   details p{color:var(--muted);font-size:14.5px;padding:0 0 20px;margin-top:-4px}
-  details p code{font-family:var(--mono);font-size:13px;background:var(--bg);padding:2px 6px;border-radius:5px;border:1px solid var(--line)}
+  details p code,.feat p code{font-family:var(--mono);font-size:13px;background:var(--bg);padding:1px 6px;border-radius:5px;border:1px solid var(--line)}
 
   /* footer */
   footer{margin-top:104px;border-top:1px solid var(--line);padding:40px 0 56px;
@@ -263,7 +283,7 @@
       <a href="#features">Features</a>
       <a href="#install">Install</a>
       <a href="#how">How it works</a>
-      <a href="#faq">FAQ</a>
+      <a href="https://www.npmjs.com/package/ctxline-claude" target="_blank" rel="noopener">More info ↗</a>
       <a href="https://github.com/MithunWijayasiri/claudecode-statusline">GitHub ↗</a>
     </div>
   </nav>
@@ -276,28 +296,29 @@
 
     <div class="term" aria-label="Example statusline">
       <div class="line">
-        <span class="proj">my-project</span>
+        <span class="proj">my-project</span>&nbsp;<span class="dim">⎇ main</span>
         <span class="sep">│</span>
-        <span>Opus&nbsp;4.8<span class="dim">(1M context)</span></span>
+        <span>Opus&nbsp;4.8&nbsp;(1M)<span class="dim">&nbsp;· high</span></span>
         <span class="sep">│</span>
-        <span class="lbl">context:</span>
-        <span class="bar"><i class="on"></i><i class="on"></i><i></i><i></i></span>
+        <span class="lbl">CTX</span>
+        <span class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span>
         <span class="pct">45%</span>
         <span class="sep">│</span>
-        <span class="lbl">current:</span>
-        <span class="bar"><i class="on"></i><i></i><i></i><i></i></span>
+        <span class="lbl">5h</span>
+        <span class="bar"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span>
         <span class="pct">14%</span>&nbsp;<span class="dim">(4h21m)</span>
         <span class="sep">│</span>
-        <span class="lbl">weekly:</span>
-        <span class="bar"><i class="on"></i><i class="on"></i><i></i><i></i></span>
+        <span class="lbl">7d</span>
+        <span class="bar"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></span>
         <span class="pct">31%</span>&nbsp;<span class="dim">(2d14h)</span>
       </div>
     </div>
 
-    <div class="cta">
-      <button class="btn primary" onclick="copyCmd(this,'npx ctxline-claude')">npx ctxline-claude</button>
-      <a class="btn ghost" href="https://github.com/MithunWijayasiri/claudecode-statusline">View on GitHub</a>
+    <div class="cmd" id="install">
+      <code><span class="pr">$</span> npx ctxline-claude</code>
+      <button class="copy" onclick="copyCmd(this,'npx ctxline-claude')">Copy</button>
     </div>
+    <small>Then restart Claude Code or start a new session. That's it. <span style="color:var(--faint)">(bunx also works)</span></small>
 
     <div class="platforms">
       <span class="dot">●</span>
@@ -306,31 +327,24 @@
     </div>
   </header>
 
-  <!-- INSTALL -->
-  <section class="install" id="install">
-    <span class="kicker">One command · zero config</span>
-    <h2>Install in seconds</h2>
-    <div class="cmd">
-      <code><span class="pr">$</span> npx ctxline-claude</code>
-      <button class="copy" onclick="copyCmd(this,'npx ctxline-claude')">Copy</button>
-    </div>
-    <small>Then restart Claude Code or start a new session. That's it. <span style="color:var(--faint)">(bunx also works)</span></small>
-  </section>
-
   <!-- FEATURES -->
   <section class="block" id="features">
     <div class="sec-head">
       <span class="kicker">What it shows</span>
-      <h2>Six signals, one line</h2>
-      <p>Everything is best-effort and silent — if a source is missing, the line still renders.</p>
+      <h2>Eight signals, one line</h2>
+      <p>Read left to right, it's the whole picture. Everything is best-effort and silent — if a source is missing, the line just skips it and still renders.</p>
     </div>
-    <div class="grid">
-      <div class="feat"><div class="tag">DIR</div><h3>Directory</h3><p>The current working directory, so you always know where Claude is operating.</p></div>
-      <div class="feat"><div class="tag">MODEL</div><h3>Active model</h3><p>Opus, Sonnet, or Haiku — plus the context window size at a glance.</p></div>
-      <div class="feat"><div class="tag">CONTEXT</div><h3>Context bar</h3><p>A visual bar of context-window usage that shifts color as it fills up.</p></div>
-      <div class="feat"><div class="tag">CURRENT</div><h3>5-hour session</h3><p>Live session limit with a reset countdown, pulled from the usage API.</p></div>
-      <div class="feat"><div class="tag">WEEKLY</div><h3>Weekly allowance</h3><p>Your weekly usage and the time remaining until the weekly reset.</p></div>
-      <div class="feat"><div class="tag">TASK</div><h3>Current task</h3><p>The in-progress to-do surfaces inline whenever there's active work.</p></div>
+    <div class="inspect">
+      <div class="term"><div class="line insp-line" id="insp-line" role="tablist" aria-label="Statusline segments"></div></div>
+      <p class="insp-hint">↑ hover, tap, or use arrow keys to inspect a segment</p>
+      <div class="insp-panel" id="insp-panel" role="tabpanel" tabindex="0">
+        <div class="insp-badge" id="insp-badge">DIR</div>
+        <div class="insp-body">
+          <h3 id="insp-title"></h3>
+          <p id="insp-desc"></p>
+          <code class="insp-field" id="insp-field"></code>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -349,23 +363,8 @@
     </div>
   </section>
 
-  <!-- FAQ -->
-  <section class="block" id="faq">
-    <div class="sec-head">
-      <span class="kicker">FAQ</span>
-      <h2>Good questions</h2>
-    </div>
-    <div class="faq">
-      <details><summary>Does this use the same data as /usage?</summary><p>Yes. Usage information comes directly from Anthropic's usage API — the same source <code>/usage</code> reads.</p></details>
-      <details><summary>Does it work with API keys?</summary><p>Yes. The statusline automatically detects subscription vs API-key usage. API-key users simply skip the usage fetch.</p></details>
-      <details><summary>Can it break Claude Code?</summary><p>No. All failures are handled silently and the statusline always renders something. It never hangs or throws.</p></details>
-      <details><summary>Does it expose my API keys or auth tokens?</summary><p>No. Your credentials never leave your machine. The OAuth token is read locally only to authenticate the request to Anthropic's own usage API. Nothing is sent to any third party, logged, or cached — only the resulting usage percentages are stored locally.</p></details>
-      <details><summary>How do I uninstall it?</summary><p>Run <code>npx ctxline-claude uninstall</code>. It removes the statusline entry from your settings (backed up first), deletes the hook script, and clears the usage cache. Other settings are left untouched.</p></details>
-    </div>
-  </section>
-
   <footer>
-    <div class="l">Built for the <b>Claude Code</b> community · MIT licensed</div>
+    <div class="l">Built for <b>Claude Code</b> · MIT </div>
     <div class="r">
       <a href="https://www.npmjs.com/package/ctxline-claude">npm ↗</a>
       <a href="https://github.com/MithunWijayasiri/claudecode-statusline">GitHub ↗</a>
@@ -390,13 +389,83 @@
     });
   }
 
+  // ---- features inspector: hover/tap a segment, panel below explains it ----
+  (function(){
+    var line = document.getElementById('insp-line');
+    if(!line) return;
+    function bar(on){var s='<span class="bar">';for(var i=0;i<6;i++)s+='<i class="'+(i<on?'on':'')+'"></i>';return s+'</span>';}
+    var SIGNALS = [
+      {tag:'DIR',     title:'Directory',       field:'workspace.current_dir',
+       desc:'The current working directory — you always know where Claude is operating.',
+       tok:'<span class="proj">my-project</span>'},
+      {tag:'BRANCH',  title:'Git branch',      field:'.git/HEAD',
+       desc:'Active branch beside the dir, read straight from .git. Long names trim; the ticket ID stays.',
+       tok:'<span class="dim">⎇ main</span>'},
+      {tag:'MODEL',   title:'Active model',    field:'model.display_name',
+       desc:'Opus, Sonnet, or Haiku — plus the context window size at a glance.',
+       tok:'Opus&nbsp;4.8&nbsp;(1M)'},
+      {tag:'EFFORT',  title:'Thinking effort', field:'effort.level',
+       desc:'The reasoning level. max shows red and ultracode purple, so the heaviest modes stand out.',
+       tok:'<span class="dim">· high</span>'},
+      {tag:'CONTEXT', title:'Context bar',     field:'context_window.remaining_percentage',
+       desc:'Context-window usage. The bar shifts color as it fills toward the limit.',
+       tok:'<span class="lbl">CTX</span> '+bar(3)+' <span class="pct">45%</span>'},
+      {tag:'5H',      title:'5-hour session',  field:'rate_limits.five_hour',
+       desc:'Live 5-hour session limit with a reset countdown, pulled from the usage API.',
+       tok:'<span class="lbl">5h</span> '+bar(1)+' <span class="pct">14%</span> <span class="dim">(4h20m)</span>'},
+      {tag:'7D',      title:'Weekly allowance',field:'rate_limits.seven_day',
+       desc:'Your weekly usage and the time remaining until the weekly reset.',
+       tok:'<span class="lbl">7d</span> '+bar(2)+' <span class="pct">31%</span> <span class="dim">(2d13h)</span>'},
+      {tag:'TASK',    title:'Current task',    field:'todos/<session>-agent.json',
+       desc:'The in-progress to-do surfaces inline whenever there is active work.',
+       tok:'<span class="dim">Refactoring usage cache</span>'}
+    ];
+    var panel=document.getElementById('insp-panel'),
+        badge=document.getElementById('insp-badge'), title=document.getElementById('insp-title'),
+        desc=document.getElementById('insp-desc'), field=document.getElementById('insp-field'), segs=[];
+    SIGNALS.forEach(function(s,i){
+      if(i) line.insertAdjacentHTML('beforeend','<span class="sep" aria-hidden="true">│</span>');
+      var el=document.createElement('span');
+      el.className='insp-seg'; el.id='insp-tab-'+i; el.innerHTML=s.tok;
+      el.setAttribute('role','tab');
+      el.setAttribute('aria-selected','false');
+      el.setAttribute('aria-label', s.tag+' — '+s.title);
+      el.tabIndex=-1;
+      el.addEventListener('mouseenter',function(){select(i);});
+      el.addEventListener('click',function(){select(i);el.focus();});
+      el.addEventListener('keydown',function(e){onKey(e,i);});
+      line.appendChild(el); segs.push(el);
+    });
+    function select(i){
+      segs.forEach(function(el,j){
+        var on=i===j;
+        el.classList.toggle('sel',on);
+        el.setAttribute('aria-selected',on?'true':'false');
+        el.tabIndex=on?0:-1;
+      });
+      var s=SIGNALS[i];
+      badge.textContent=s.tag; title.textContent=s.title; desc.textContent=s.desc; field.textContent=s.field;
+      panel.setAttribute('aria-labelledby','insp-tab-'+i);
+    }
+    function onKey(e,i){
+      var n=SIGNALS.length, t=-1;
+      if(e.key==='ArrowRight'||e.key==='ArrowDown') t=(i+1)%n;
+      else if(e.key==='ArrowLeft'||e.key==='ArrowUp') t=(i-1+n)%n;
+      else if(e.key==='Home') t=0;
+      else if(e.key==='End') t=n-1;
+      else if(e.key==='Enter'||e.key===' ') { select(i); e.preventDefault(); return; }
+      else return;
+      e.preventDefault(); select(t); segs[t].focus();   // roving tabindex + automatic activation
+    }
+    select(0);
+  })();
+
   // ---- entrance + scroll-reveal ----
   (function(){
     var reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
     // tag elements that should animate
-    var sel = '.hero .kicker,.hero h1,.hero .sub,.term,.hero .cta,' +
-              '.install .kicker,.install h2,.install .cmd,.install small,' +
-              '.sec-head,.feat,.step,details';
+    var sel = '.hero .kicker,.hero h1,.hero .sub,.term,.hero .cmd,.hero small,.hero .platforms,' +
+              '.sec-head,.feat,.step,details,.insp-hint,.insp-panel';
     var els = Array.prototype.slice.call(document.querySelectorAll(sel));
     if(reduce){ return; } // CSS already shows everything; skip JS motion
     els.forEach(function(el){ el.setAttribute('data-anim',''); });
@@ -408,7 +477,7 @@
 
     // hero block animates immediately, staggered
     var hero = Array.prototype.slice.call(document.querySelectorAll(
-      '.hero .kicker,.hero h1,.hero .sub,.term,.hero .cta'));
+      '.hero .kicker,.hero h1,.hero .sub,.hero .term,.hero .cmd,.hero small,.hero .platforms'));
     hero.forEach(function(el,i){ setTimeout(function(){ reveal(el,0); }, 80 + i*110); });
 
     // everything else reveals on scroll, staggered within its row
