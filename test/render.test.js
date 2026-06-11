@@ -130,6 +130,28 @@ test('no .git -> no branch glyph in dir segment', () => {
   assert.ok(!parts[0].includes('⎇'), 'branch glyph should be absent without a repo');
 });
 
+test('detached HEAD -> short 7-char SHA', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-detach-'));
+  fs.mkdirSync(path.join(dir, '.git'));
+  fs.writeFileSync(path.join(dir, '.git', 'HEAD'), 'abc1234567890abcdef1234567890abcdef12345\n'); // 40-char SHA
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const { clean } = run(fixture(40, dir));
+  assert.match(clean.split(' │ ')[0], /⎇ abc1234$/);   // first 7 chars of the SHA
+});
+
+test('worktree (.git is a file with gitdir:) -> branch still renders', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-wt-'));
+  const gitdir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-wtgit-'));
+  fs.writeFileSync(path.join(gitdir, 'HEAD'), 'ref: refs/heads/feature/wt\n');
+  fs.writeFileSync(path.join(dir, '.git'), `gitdir: ${gitdir}\n`); // .git as a file pointer
+  after(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(gitdir, { recursive: true, force: true });
+  });
+  const { clean } = run(fixture(40, dir));
+  assert.match(clean.split(' │ ')[0], /⎇ feature\/wt$/);
+});
+
 test('thinking effort renders next to the model (· <level>)', () => {
   const { clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8', 'high'));
   const parts = clean.split(' │ ');
