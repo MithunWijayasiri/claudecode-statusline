@@ -1,17 +1,15 @@
 name: Release
 
-# Manually triggered after an npm publish. Creates a GitHub release with:
+# Manually triggered. Publishes to npm, then creates a matching GitHub release with:
 # - the statusline preview (colors stripped, GitHub markdown can't render ANSI)
 # - auto-generated notes from commits/PRs since the previous release
 # - Source code (zip/tar.gz), which GitHub attaches automatically
+#
+# Bump the version in package.json before running — npm rejects re-publishing an
+# existing version (and the release step refuses a duplicate tag).
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version without the leading 'v' (blank = use package.json version)"
-        required: false
-        default: ""
+  workflow_dispatch:   # version comes from package.json — bump it in a commit before running
 
 permissions:
   contents: write   # required to create the tag + release
@@ -26,22 +24,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          registry-url: 'https://registry.npmjs.org'   # writes the auth line npm publish needs
 
       - name: Resolve tag
         id: ver
-        env:
-          VERSION_INPUT: ${{ github.event.inputs.version }}   # via env, never interpolated into the script
         run: |
-          V="$VERSION_INPUT"
-          if [ -z "$V" ]; then V="$(node -p "require('./package.json').version")"; fi
+          V="$(node -p "require('./package.json').version")"
           if ! printf '%s' "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)*$'; then
-            echo "::error::Invalid version '$V' — expected semver like 1.2.3."
+            echo "::error::Invalid version '$V' in package.json — expected semver like 1.2.3."
             exit 1
           fi
           echo "tag=v$V" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
         run: npm test
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
 
       - name: Render statusline preview
         run: node scripts/preview.js | perl -pe 's/\x1b\[[0-9;]*m//g' > preview.txt
