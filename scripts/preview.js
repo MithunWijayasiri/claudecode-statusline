@@ -14,7 +14,7 @@ const SCRIPT = path.join(__dirname, '..', 'statusline.js');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-preview-'));
 process.on('exit', () => fs.rmSync(TMP, { recursive: true, force: true }));
 
-function render({ dir, model, remaining, current, currentResetsInMin, weekly, weeklyResetsInMin }) {
+function render({ dir, model, remaining, current, currentResetsInMin, weekly, weeklyResetsInMin, branch, effort }) {
   const home = fs.mkdtempSync(path.join(TMP, 'home-'));
   const cacheDir = path.join(home, '.claude', 'cache');
   fs.mkdirSync(cacheDir, { recursive: true });
@@ -27,15 +27,22 @@ function render({ dir, model, remaining, current, currentResetsInMin, weekly, we
     }
   }));
 
+  // Real on-disk dir with a seeded .git/HEAD so the branch segment renders (statusline.js
+  // reads .git/HEAD directly). basename(currentDir) keeps the displayed dir name.
+  const projectDir = path.join(home, dir);
+  fs.mkdirSync(path.join(projectDir, '.git'), { recursive: true });
+  fs.writeFileSync(path.join(projectDir, '.git', 'HEAD'), `ref: refs/heads/${branch}\n`);
+
   const env = { ...process.env, HOME: home, USERPROFILE: home };
   delete env.ANTHROPIC_API_KEY;                             // let the usage path run
 
   const res = spawnSync(process.execPath, [SCRIPT], {
     input: JSON.stringify({
       model: { display_name: model },
-      workspace: { current_dir: dir },
+      workspace: { current_dir: projectDir },
       session_id: 'preview',
-      context_window: { remaining_percentage: remaining }
+      context_window: { remaining_percentage: remaining },
+      effort: { level: effort }
     }),
     encoding: 'utf8',
     timeout: 5000,
@@ -52,8 +59,10 @@ function render({ dir, model, remaining, current, currentResetsInMin, weekly, we
 }
 
 console.log(render({
-  dir: '/home/me/my-project',
+  dir: 'my-project',
+  branch: 'main',
   model: 'Opus 4.8 (1M context)',
+  effort: 'high',
   remaining: 55,             // context 45% used
   current: 14,
   currentResetsInMin: 261,   // renders ~(4h21m)

@@ -55,13 +55,24 @@ function seedHome({ cacheAgeMs, percentage = 42, weeklyPercentage = 31 } = {}) {
   return home;
 }
 
-function fixture(remaining, dir = '/tmp/myproject', model = 'Opus 4.8') {
-  return JSON.stringify({
+function fixture(remaining, dir = '/tmp/myproject', model = 'Opus 4.8', effort) {
+  const obj = {
     model: { display_name: model },
     workspace: { current_dir: dir },
     session_id: 'test-session',
     context_window: { remaining_percentage: remaining }
-  });
+  };
+  if (effort) obj.effort = { level: effort };
+  return JSON.stringify(obj);
+}
+
+// Make a real dir with a seeded .git/HEAD so the branch segment renders deterministically.
+function seedRepo(branch = 'feature/x') {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-repo-'));
+  fs.mkdirSync(path.join(dir, '.git'));
+  fs.writeFileSync(path.join(dir, '.git', 'HEAD'), `ref: refs/heads/${branch}\n`);
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  return dir;
 }
 
 // ANSI color codes the script emits (kept in sync with statusline.js `colors`).
@@ -84,6 +95,49 @@ test('model name is shortened: "(1M context)" -> "(1M)"', () => {
   const { clean } = run(fixture(40, '/home/me/p', 'Opus 4.8 (1M context)'));
   const parts = clean.split(' │ ');
   assert.strictEqual(parts[1], 'Opus 4.8 (1M)');
+});
+
+test('git branch renders next to the dir (⎇ <branch>)', () => {
+  const repo = seedRepo('feature/x');
+  const { clean } = run(fixture(40, repo));
+  const parts = clean.split(' │ ');
+  assert.match(parts[0], /⎇ feature\/x$/);              // branch glued to dir segment
+  assert.ok(parts[0].startsWith(path.basename(repo)));  // dir basename still first
+});
+
+test('short ticket branch is not truncated (TAMA5-32796 stays whole)', () => {
+  const repo = seedRepo('TAMA5-32796');
+  const { clean } = run(fixture(40, repo));
+  assert.match(clean, /⎇ TAMA5-32796 /);                 // intact, no ellipsis
+});
+
+test('over-long branch is tail-truncated to 24 chars with …', () => {
+  const repo = seedRepo('TAMA5-32796-add-login-form-and-tests');
+  const { clean } = run(fixture(40, repo));
+  const parts = clean.split(' │ ');
+  const m = parts[0].match(/⎇ (.+)$/);
+  assert.ok(m, 'branch segment present');
+  assert.strictEqual(m[1].length, 24);                   // 23 chars + …
+  assert.ok(m[1].endsWith('…'));
+  assert.ok(m[1].startsWith('TAMA5-32796'));             // ticket ID preserved
+});
+
+test('no .git -> no branch glyph in dir segment', () => {
+  const { clean } = run(fixture(40, '/no/such/repo/here'));
+  const parts = clean.split(' │ ');
+  assert.ok(!parts[0].includes('⎇'), 'branch glyph should be absent without a repo');
+});
+
+test('thinking effort renders next to the model (· <level>)', () => {
+  const { clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8', 'high'));
+  const parts = clean.split(' │ ');
+  assert.match(parts[1], /Opus 4\.8 · high$/);
+});
+
+test('no effort field -> model segment unchanged', () => {
+  const { clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8'));
+  const parts = clean.split(' │ ');
+  assert.strictEqual(parts[1], 'Opus 4.8');
 });
 
 test('context bar shows used% = 100 - remaining', () => {
