@@ -142,9 +142,10 @@ The installer only does two things: it copies `statusline.js` into `~/.claude/ho
 
 ### Caching System
 
-- Usage data is cached for 30 seconds in `~/.claude/cache/usage-cache.json`
-- All sessions share the same cache
-- If API call times out, shows cached data (no lag)
+- Usage data is cached in `~/.claude/cache/usage-cache.json`, shared across all sessions
+- **Cache-first**: within 30 seconds the cache is used directly and the API call is skipped (faster renders, fewer calls)
+- **Stale fallback**: if a live API call fails or times out, the last known usage (up to 10 minutes old) is shown instead of disappearing
+- The reset countdown is recomputed on every render, so it keeps ticking even when shown from cache
 
 ### API Usage
 

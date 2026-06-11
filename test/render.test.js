@@ -16,21 +16,39 @@ const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-test-'));
 after(() => fs.rmSync(FAKE_HOME, { recursive: true, force: true }));
 
 // Run statusline.js with the given stdin string. Returns { code, raw, clean }.
-function run(input) {
-  const res = spawnSync(process.execPath, [SCRIPT], {
-    input,
-    encoding: 'utf8',
-    timeout: 5000,
-    env: {
-      ...process.env,
-      ANTHROPIC_API_KEY: 'test',   // skip the usage fetch (existence is all the script checks)
-      HOME: FAKE_HOME,             // *nix: no ~/.claude
-      USERPROFILE: FAKE_HOME       // Windows: no ~/.claude
-    }
-  });
+// opts.home  : override the fake HOME (default: empty FAKE_HOME -> no usage/todos)
+// opts.usage : when true, allow the usage path to run (otherwise a dummy
+//              ANTHROPIC_API_KEY is set so the usage fetch is skipped entirely)
+function run(input, opts = {}) {
+  const home = opts.home || FAKE_HOME;
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  if (opts.usage) {
+    delete env.ANTHROPIC_API_KEY;
+  } else {
+    env.ANTHROPIC_API_KEY = 'test';
+  }
+  const res = spawnSync(process.execPath, [SCRIPT], { input, encoding: 'utf8', timeout: 5000, env });
   const raw = res.stdout || '';
   const clean = raw.replace(/\x1b\[[0-9;]*m/g, ''); // strip ANSI for readable assertions
   return { code: res.status, raw, clean };
+}
+
+// Build a throwaway HOME containing a tokenless credentials file (so getApiUsage
+// bails out before any network/keychain call) and optionally a seeded usage cache
+// of a given age. Lets us exercise the cache-first / stale-fallback logic offline.
+function seedHome({ cacheAgeMs, percentage = 42 } = {}) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-cache-'));
+  const claudeDir = path.join(home, '.claude');
+  fs.mkdirSync(path.join(claudeDir, 'cache'), { recursive: true });
+  fs.writeFileSync(path.join(claudeDir, '.credentials.json'), '{}'); // no accessToken -> API skipped
+  if (cacheAgeMs != null) {
+    const cache = {
+      timestamp: Date.now() - cacheAgeMs,
+      data: { percentage, resetsAt: new Date(Date.now() + 2 * 3600 * 1000).toISOString() }
+    };
+    fs.writeFileSync(path.join(claudeDir, 'cache', 'usage-cache.json'), JSON.stringify(cache));
+  }
+  return home;
 }
 
 function fixture(remaining, dir = '/tmp/myproject', model = 'Opus 4.8') {
@@ -104,4 +122,28 @@ test('missing fields -> no crash, exit 0', () => {
   assert.strictEqual(code, 0);
   assert.ok(clean.includes('Claude'));                 // default model name
   assert.ok(clean.includes('context:'));
+});
+
+// Usage bar: cache-first behavior and the stale fallback that fixes the
+// "usage section disappears mid-session" bug.
+
+test('fresh cache -> usage rendered from cache (no API call)', () => {
+  const home = seedHome({ cacheAgeMs: 5000, percentage: 42 }); // < FRESH_TTL (30s)
+  const { code, clean } = run(fixture(40), { home, usage: true });
+  assert.strictEqual(code, 0);
+  assert.match(clean, /usage: .* 42%/);
+});
+
+test('stale cache + failing API -> usage stays visible (does not disappear)', () => {
+  const home = seedHome({ cacheAgeMs: 2 * 60 * 1000, percentage: 57 }); // > FRESH, < STALE
+  const { clean } = run(fixture(40), { home, usage: true });
+  assert.match(clean, /usage: .* 57%/);
+});
+
+test('expired cache + failing API -> usage omitted', () => {
+  const home = seedHome({ cacheAgeMs: 20 * 60 * 1000, percentage: 57 }); // > STALE_TTL (10m)
+  const { code, clean } = run(fixture(40), { home, usage: true });
+  assert.strictEqual(code, 0);                                  // ran successfully
+  assert.ok(clean.includes('context:'), 'expected the normal line to still render');
+  assert.ok(!clean.includes('usage:'), 'usage should be omitted once cache is too old');
 });
