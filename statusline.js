@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Claude Code Enhanced Statusline
-// Shows: directory | model | context usage | API usage (5-hour limit) | current task
+// Shows: directory | model | context usage | current (5-hour) + weekly usage | current task
 // Auto-detects API key vs subscription usage
 // https://github.com/MithunWijayasiri/claudecode-statusline
 
@@ -11,6 +11,9 @@ const https = require('https');
 const { execSync } = require('child_process');
 
 const IS_API_KEY = !!process.env.ANTHROPIC_API_KEY;
+
+// Shared width (cells) for all progress bars: context, current, weekly.
+const BAR_WIDTH = 6;
 
 // Cache configuration
 const CACHE_DIR = path.join(os.homedir(), '.claude', 'cache');
@@ -40,12 +43,17 @@ function getUsageColor(percentage) {
   return colors.red;
 }
 
+// Shorten verbose model names for the statusline: "Opus 4.8 (1M context)" -> "Opus 4.8 (1M)".
+function shortenModel(name) {
+  return name.replace(/\s+context\)/i, ')');
+}
+
 function getContextBar(remaining) {
   const effectiveRemaining = remaining ?? 100;
   const used = Math.max(0, Math.min(100, 100 - Math.round(effectiveRemaining)));
 
-  const filled = Math.floor(used / 10);
-  const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(10 - filled);
+  const filled = Math.floor((used / 100) * BAR_WIDTH);
+  const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(BAR_WIDTH - filled);
 
   let coloredBar;
   if (used < 50) {
@@ -55,7 +63,7 @@ function getContextBar(remaining) {
   } else if (used < 80) {
     coloredBar = `${colors.orange}${bar} ${used}%${colors.reset}`;
   } else {
-    coloredBar = `${colors.blink}${colors.red}\u{1F480} ${bar} ${used}%${colors.reset}`;
+    coloredBar = `${colors.blink}${colors.red}${bar} ${used}%${colors.reset}`;
   }
 
   return coloredBar;
@@ -67,21 +75,43 @@ function buildUsageBar(percentage, resetsAt) {
   let timeStr = '';
   if (resetsAt) {
     const diffMins = Math.max(0, Math.floor((new Date(resetsAt) - new Date()) / 60000));
-    const hours = Math.floor(diffMins / 60);
+    const days = Math.floor(diffMins / 1440);
+    const hours = Math.floor((diffMins % 1440) / 60);
     const mins = diffMins % 60;
-    timeStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+    if (days > 0) timeStr = `${days}d${hours}h`;
+    else if (hours > 0) timeStr = `${hours}h${mins}m`;
+    else timeStr = `${mins}m`;
   }
 
-  const barWidth = 10;
-  const filledWidth = Math.max(0, Math.min(barWidth, Math.round((percentage / 100) * barWidth)));
+  const filledWidth = Math.max(0, Math.min(BAR_WIDTH, Math.round((percentage / 100) * BAR_WIDTH)));
   const filled = '█'.repeat(filledWidth);
-  const empty = '░'.repeat(barWidth - filledWidth);
+  const empty = '░'.repeat(BAR_WIDTH - filledWidth);
   const color = getUsageColor(percentage);
+  const timePart = timeStr ? `${colors.dim} (${timeStr})${colors.reset}` : '';
 
-  return `${color}${filled}${empty} ${percentage}%${colors.reset}${colors.dim} (${timeStr})${colors.reset}`;
+  return `${color}${filled}${empty} ${percentage}%${colors.reset}${timePart}`;
 }
 
-// Read the raw cached usage data ({ timestamp, data: { percentage, resetsAt } }).
+// Build both usage bars from raw entries. Each entry is { percentage, resetsAt } or
+// null/absent. Returns { current, weekly } where each is a rendered bar string or null.
+function buildUsageBars(fiveHour, weekly) {
+  return {
+    current: fiveHour ? buildUsageBar(fiveHour.percentage, fiveHour.resetsAt) : null,
+    weekly: weekly ? buildUsageBar(weekly.percentage, weekly.resetsAt) : null
+  };
+}
+
+// Validate a single usage entry ({ percentage, resetsAt }). Returns true only for a
+// finite 0-100 percentage and a parseable (or absent) resetsAt.
+function isValidUsageEntry(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  if (!Number.isFinite(entry.percentage) || entry.percentage < 0 || entry.percentage > 100) return false;
+  if (entry.resetsAt != null && Number.isNaN(new Date(entry.resetsAt).getTime())) return false;
+  return true;
+}
+
+// Read the raw cached usage data
+// ({ timestamp, data: { fiveHour: {percentage,resetsAt}, weekly: {...}|null } }).
 // Returns { age, data } or null. Age-vs-TTL decisions are made by the caller.
 function readCachedUsage() {
   try {
@@ -90,12 +120,13 @@ function readCachedUsage() {
     const cache = JSON.parse(fs.readFileSync(USAGE_CACHE_FILE, 'utf8'));
     if (!cache || !Number.isFinite(cache.timestamp) || cache.timestamp <= 0) return null;
 
-    // Validate data (also rejects the legacy string-cache format from older versions),
-    // so callers never receive undefined/NaN percentage or an unparseable resetsAt.
+    // Validate data. fiveHour is required; weekly is optional (the API may omit it).
+    // This also rejects the legacy single-{percentage,resetsAt} format from older
+    // versions, which had no fiveHour key, so stale caches are ignored on read.
     const data = cache.data;
     if (!data || typeof data !== 'object') return null;
-    if (!Number.isFinite(data.percentage) || data.percentage < 0 || data.percentage > 100) return null;
-    if (data.resetsAt != null && Number.isNaN(new Date(data.resetsAt).getTime())) return null;
+    if (!isValidUsageEntry(data.fiveHour)) return null;
+    if (data.weekly != null && !isValidUsageEntry(data.weekly)) return null;
 
     return { age: Date.now() - cache.timestamp, data };
   } catch (e) {
@@ -179,14 +210,20 @@ function getApiUsage(callback) {
         try {
           const usage = JSON.parse(data);
 
-          // Get 5-hour session usage
+          // 5-hour session usage is required; weekly (seven_day) is rendered when present.
           if (usage.five_hour) {
-            const percentage = Math.round(usage.five_hour.utilization);
-            const resetsAt = usage.five_hour.resets_at || null;
+            const fiveHour = {
+              percentage: Math.round(usage.five_hour.utilization),
+              resetsAt: usage.five_hour.resets_at || null
+            };
+            const weekly = usage.seven_day ? {
+              percentage: Math.round(usage.seven_day.utilization),
+              resetsAt: usage.seven_day.resets_at || null
+            } : null;
 
-            // Cache the raw data (shared across sessions); render the bar from it.
-            setCachedUsage({ percentage, resetsAt });
-            callback(buildUsageBar(percentage, resetsAt));
+            // Cache the raw data (shared across sessions); render the bars from it.
+            setCachedUsage({ fiveHour, weekly });
+            callback(buildUsageBars(fiveHour, weekly));
           } else {
             callback(null);
           }
@@ -214,16 +251,16 @@ function getUsageWithCache(callback) {
 
   // Cache is fresh -> render it and skip the API entirely (fewer calls, faster).
   if (cached && cached.age < FRESH_TTL_MS) {
-    return callback(buildUsageBar(cached.data.percentage, cached.data.resetsAt));
+    return callback(buildUsageBars(cached.data.fiveHour, cached.data.weekly));
   }
 
   // Cache is stale or missing -> refresh from the API.
-  getApiUsage((freshBar) => {
-    if (freshBar) {
-      callback(freshBar);
+  getApiUsage((freshBars) => {
+    if (freshBars) {
+      callback(freshBars);
     } else if (cached && cached.age < STALE_TTL_MS) {
       // API failed/timed out, but recent cache exists -> show it instead of nothing.
-      callback(buildUsageBar(cached.data.percentage, cached.data.resetsAt));
+      callback(buildUsageBars(cached.data.fiveHour, cached.data.weekly));
     } else {
       callback(null);
     }
@@ -255,9 +292,9 @@ function getCurrentTask(sessionId) {
 }
 
 // Main
-function outputStatus(data, usageBar) {
+function outputStatus(data, usage) {
   try {
-    const model = data?.model?.display_name || 'Claude';
+    const model = shortenModel(data?.model?.display_name || 'Claude');
     const dir = data?.workspace?.current_dir || process.cwd();
     const dirname = path.basename(dir);
     const sessionId = data?.session_id || '';
@@ -268,11 +305,10 @@ function outputStatus(data, usageBar) {
     const parts = [];
     parts.push(dirname);
     parts.push(model);
-    parts.push(`context: ${contextBar}`);
+    parts.push(`CTX ${contextBar}`);
 
-    if (usageBar) {
-      parts.push(`usage: ${usageBar}`);
-    }
+    if (usage?.current) parts.push(`5h ${usage.current}`);
+    if (usage?.weekly) parts.push(`7d ${usage.weekly}`);
 
     if (task) parts.push(`${colors.dim}${task}${colors.reset}`);
     process.stdout.write(parts.join(' \u2502 '));
@@ -281,10 +317,11 @@ function outputStatus(data, usageBar) {
   }
 }
 
-function outputFallback(usageBar) {
+function outputFallback(usage) {
   const contextBar = getContextBar(undefined);
-  const parts = ['~', 'Claude', `context: ${contextBar}`];
-  if (usageBar) parts.push(`usage: ${usageBar}`);
+  const parts = ['~', 'Claude', `CTX ${contextBar}`];
+  if (usage?.current) parts.push(`5h ${usage.current}`);
+  if (usage?.weekly) parts.push(`7d ${usage.weekly}`);
   process.stdout.write(parts.join(' \u2502 '));
 }
 
@@ -299,8 +336,8 @@ function getUsage(callback) {
 
 // Process with timeout
 if (process.stdin.isTTY) {
-  getUsage((usageBar) => {
-    outputFallback(usageBar);
+  getUsage((usage) => {
+    outputFallback(usage);
     process.exit(0);
   });
 } else {
@@ -311,16 +348,16 @@ if (process.stdin.isTTY) {
 
   const timeout = setTimeout(() => {
     timeoutReached = true;
-    getUsage((usageBar) => {
+    getUsage((usage) => {
       if (input.length > 0) {
         try {
           const data = JSON.parse(input);
-          outputStatus(data, usageBar);
+          outputStatus(data, usage);
         } catch (e) {
-          outputFallback(usageBar);
+          outputFallback(usage);
         }
       } else {
-        outputFallback(usageBar);
+        outputFallback(usage);
       }
       process.exit(0);
     });
@@ -332,12 +369,12 @@ if (process.stdin.isTTY) {
     if (timeoutReached) return;
     clearTimeout(timeout);
 
-    getUsage((usageBar) => {
+    getUsage((usage) => {
       try {
         const data = JSON.parse(input);
-        outputStatus(data, usageBar);
+        outputStatus(data, usage);
       } catch (e) {
-        outputFallback(usageBar);
+        outputFallback(usage);
       }
       process.exit(0);
     });

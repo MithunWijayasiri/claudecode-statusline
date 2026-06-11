@@ -36,7 +36,7 @@ function run(input, opts = {}) {
 // Build a throwaway HOME containing a tokenless credentials file (so getApiUsage
 // bails out before any network/keychain call) and optionally a seeded usage cache
 // of a given age. Lets us exercise the cache-first / stale-fallback logic offline.
-function seedHome({ cacheAgeMs, percentage = 42 } = {}) {
+function seedHome({ cacheAgeMs, percentage = 42, weeklyPercentage = 31 } = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-cache-'));
   const claudeDir = path.join(home, '.claude');
   fs.mkdirSync(path.join(claudeDir, 'cache'), { recursive: true });
@@ -44,7 +44,11 @@ function seedHome({ cacheAgeMs, percentage = 42 } = {}) {
   if (cacheAgeMs != null) {
     const cache = {
       timestamp: Date.now() - cacheAgeMs,
-      data: { percentage, resetsAt: new Date(Date.now() + 2 * 3600 * 1000).toISOString() }
+      data: {
+        fiveHour: { percentage, resetsAt: new Date(Date.now() + 2 * 3600 * 1000).toISOString() },
+        // 62h out -> exercises the day-aware countdown (2d14h)
+        weekly: { percentage: weeklyPercentage, resetsAt: new Date(Date.now() + 62 * 3600 * 1000).toISOString() }
+      }
     };
     fs.writeFileSync(path.join(claudeDir, 'cache', 'usage-cache.json'), JSON.stringify(cache));
   }
@@ -73,12 +77,18 @@ test('line assembly: dir basename | model | context, separated by │', () => {
   const parts = clean.split(' │ ');
   assert.strictEqual(parts[0], 'cool-project');        // basename only
   assert.strictEqual(parts[1], 'Sonnet 4.6');          // model passes through
-  assert.match(parts[2], /^context: /);
+  assert.match(parts[2], /^CTX /);
+});
+
+test('model name is shortened: "(1M context)" -> "(1M)"', () => {
+  const { clean } = run(fixture(40, '/home/me/p', 'Opus 4.8 (1M context)'));
+  const parts = clean.split(' │ ');
+  assert.strictEqual(parts[1], 'Opus 4.8 (1M)');
 });
 
 test('context bar shows used% = 100 - remaining', () => {
   const { clean } = run(fixture(65));
-  assert.match(clean, /context: .* 35%/);              // remaining 65 -> used 35
+  assert.match(clean, /CTX .* 35%/);              // remaining 65 -> used 35
 });
 
 test('threshold: used < 50 is green', () => {
@@ -96,10 +106,10 @@ test('threshold: 65 <= used < 80 is orange', () => {
   assert.ok(raw.includes(ORANGE), 'expected orange color code');
 });
 
-test('threshold: used >= 80 is blinking red with skull', () => {
+test('threshold: used >= 80 is blinking red, no emoji', () => {
   const { raw, clean } = run(fixture(10));             // used 90
   assert.ok(raw.includes(BLINK) && raw.includes(RED), 'expected blink + red');
-  assert.ok(clean.includes('\u{1F480}'), 'expected skull emoji');
+  assert.ok(!clean.includes('\u{1F480}'), 'skull emoji should be removed');
   assert.match(clean, / 90%/);
 });
 
@@ -108,42 +118,45 @@ test('empty stdin -> fallback line, exit 0', () => {
   const { code, clean } = run('');
   assert.strictEqual(code, 0);
   assert.ok(clean.includes('│'), 'expected a separator in fallback');
-  assert.ok(clean.includes('context:'), 'expected context label in fallback');
+  assert.ok(clean.includes('CTX'), 'expected context label in fallback');
 });
 
 test('malformed JSON -> fallback line, exit 0', () => {
   const { code, clean } = run('not json at all');
   assert.strictEqual(code, 0);
-  assert.ok(clean.includes('context:'));
+  assert.ok(clean.includes('CTX'));
 });
 
 test('missing fields -> no crash, exit 0', () => {
   const { code, clean } = run('{}');
   assert.strictEqual(code, 0);
   assert.ok(clean.includes('Claude'));                 // default model name
-  assert.ok(clean.includes('context:'));
+  assert.ok(clean.includes('CTX'));
 });
 
 // Usage bar: cache-first behavior and the stale fallback that fixes the
 // "usage section disappears mid-session" bug.
 
-test('fresh cache -> usage rendered from cache (no API call)', () => {
-  const home = seedHome({ cacheAgeMs: 5000, percentage: 42 }); // < FRESH_TTL (30s)
+test('fresh cache -> current + weekly rendered from cache (no API call)', () => {
+  const home = seedHome({ cacheAgeMs: 5000, percentage: 42, weeklyPercentage: 31 }); // < FRESH_TTL (30s)
   const { code, clean } = run(fixture(40), { home, usage: true });
   assert.strictEqual(code, 0);
-  assert.match(clean, /usage: .* 42%/);
+  assert.match(clean, /5h .* 42%/);
+  assert.match(clean, /7d .* 31%/);
+  assert.match(clean, /7d .* 31% \(2d\d{1,2}h\)/);             // day-aware reset countdown (Xd Yh)
 });
 
 test('stale cache + failing API -> usage stays visible (does not disappear)', () => {
   const home = seedHome({ cacheAgeMs: 2 * 60 * 1000, percentage: 57 }); // > FRESH, < STALE
   const { clean } = run(fixture(40), { home, usage: true });
-  assert.match(clean, /usage: .* 57%/);
+  assert.match(clean, /5h .* 57%/);
 });
 
 test('expired cache + failing API -> usage omitted', () => {
   const home = seedHome({ cacheAgeMs: 20 * 60 * 1000, percentage: 57 }); // > STALE_TTL (10m)
   const { code, clean } = run(fixture(40), { home, usage: true });
   assert.strictEqual(code, 0);                                  // ran successfully
-  assert.ok(clean.includes('context:'), 'expected the normal line to still render');
-  assert.ok(!clean.includes('usage:'), 'usage should be omitted once cache is too old');
+  assert.ok(clean.includes('CTX'), 'expected the normal line to still render');
+  assert.ok(!clean.includes('5h '), 'current usage should be omitted once cache is too old');
+  assert.ok(!clean.includes('7d '), 'weekly usage should be omitted once cache is too old');
 });

@@ -151,4 +151,4 @@ MIT
 
 ## Credits
 
-Thanks to [@TahaSabir0](https://github.com/TahaSabir0) for the base config. Built for the [Claude Code](https://github.com/anthropics/claude-code) community.
+Thanks to [@TahaSabir0](https://github.com/TahaSabir0) for the base config.

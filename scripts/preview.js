@@ -14,14 +14,17 @@ const SCRIPT = path.join(__dirname, '..', 'statusline.js');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-preview-'));
 process.on('exit', () => fs.rmSync(TMP, { recursive: true, force: true }));
 
-function render({ dir, model, remaining, usage, resetsInMin }) {
+function render({ dir, model, remaining, current, currentResetsInMin, weekly, weeklyResetsInMin }) {
   const home = fs.mkdtempSync(path.join(TMP, 'home-'));
   const cacheDir = path.join(home, '.claude', 'cache');
   fs.mkdirSync(cacheDir, { recursive: true });
   fs.writeFileSync(path.join(home, '.claude', '.credentials.json'), '{}'); // no token -> no network
   fs.writeFileSync(path.join(cacheDir, 'usage-cache.json'), JSON.stringify({
     timestamp: Date.now(),                                  // fresh -> cache-first renders it
-    data: { percentage: usage, resetsAt: new Date(Date.now() + resetsInMin * 60000).toISOString() }
+    data: {
+      fiveHour: { percentage: current, resetsAt: new Date(Date.now() + currentResetsInMin * 60000).toISOString() },
+      weekly: { percentage: weekly, resetsAt: new Date(Date.now() + weeklyResetsInMin * 60000).toISOString() }
+    }
   }));
 
   const env = { ...process.env, HOME: home, USERPROFILE: home };
@@ -51,7 +54,9 @@ function render({ dir, model, remaining, usage, resetsInMin }) {
 console.log(render({
   dir: '/home/me/my-project',
   model: 'Opus 4.8 (1M context)',
-  remaining: 55,    // context 45% used
-  usage: 14,
-  resetsInMin: 21   // renders ~(20m)
+  remaining: 55,             // context 45% used
+  current: 14,
+  currentResetsInMin: 261,   // renders ~(4h21m)
+  weekly: 31,
+  weeklyResetsInMin: 3720    // renders ~(2d14h)
 }));
