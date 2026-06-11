@@ -101,6 +101,14 @@ function buildUsageBars(fiveHour, weekly) {
   };
 }
 
+// Normalize a raw API utilization into the 0-100 integer that the rest of the
+// pipeline (cache validation + bar rendering) expects. Returns null when the value
+// isn't a finite number, so callers can omit that bar instead of rendering "NaN%".
+function normalizePercentage(value) {
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 // Validate a single usage entry ({ percentage, resetsAt }). Returns true only for a
 // finite 0-100 percentage and a parseable (or absent) resetsAt.
 function isValidUsageEntry(entry) {
@@ -211,13 +219,17 @@ function getApiUsage(callback) {
           const usage = JSON.parse(data);
 
           // 5-hour session usage is required; weekly (seven_day) is rendered when present.
-          if (usage.five_hour) {
+          // Normalize utilization first so a missing/non-finite value omits the bar
+          // instead of rendering "NaN%" or an out-of-range percentage.
+          const fivePct = usage.five_hour ? normalizePercentage(usage.five_hour.utilization) : null;
+          if (fivePct != null) {
             const fiveHour = {
-              percentage: Math.round(usage.five_hour.utilization),
+              percentage: fivePct,
               resetsAt: usage.five_hour.resets_at || null
             };
-            const weekly = usage.seven_day ? {
-              percentage: Math.round(usage.seven_day.utilization),
+            const weeklyPct = usage.seven_day ? normalizePercentage(usage.seven_day.utilization) : null;
+            const weekly = weeklyPct != null ? {
+              percentage: weeklyPct,
               resetsAt: usage.seven_day.resets_at || null
             } : null;
 
