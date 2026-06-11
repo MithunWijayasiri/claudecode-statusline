@@ -142,6 +142,8 @@ test('stale cache + failing API -> usage stays visible (does not disappear)', ()
 
 test('expired cache + failing API -> usage omitted', () => {
   const home = seedHome({ cacheAgeMs: 20 * 60 * 1000, percentage: 57 }); // > STALE_TTL (10m)
-  const { clean } = run(fixture(40), { home, usage: true });
+  const { code, clean } = run(fixture(40), { home, usage: true });
+  assert.strictEqual(code, 0);                                  // ran successfully
+  assert.ok(clean.includes('context:'), 'expected the normal line to still render');
   assert.ok(!clean.includes('usage:'), 'usage should be omitted once cache is too old');
 });

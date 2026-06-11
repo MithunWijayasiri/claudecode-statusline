@@ -88,10 +88,16 @@ function readCachedUsage() {
     if (!fs.existsSync(USAGE_CACHE_FILE)) return null;
 
     const cache = JSON.parse(fs.readFileSync(USAGE_CACHE_FILE, 'utf8'));
-    // Ignore the legacy string-cache format from older versions.
-    if (!cache || typeof cache.data !== 'object' || cache.data === null) return null;
+    if (!cache || !Number.isFinite(cache.timestamp) || cache.timestamp <= 0) return null;
 
-    return { age: Date.now() - cache.timestamp, data: cache.data };
+    // Validate data (also rejects the legacy string-cache format from older versions),
+    // so callers never receive undefined/NaN percentage or an unparseable resetsAt.
+    const data = cache.data;
+    if (!data || typeof data !== 'object') return null;
+    if (!Number.isFinite(data.percentage) || data.percentage < 0 || data.percentage > 100) return null;
+    if (data.resetsAt != null && Number.isNaN(new Date(data.resetsAt).getTime())) return null;
+
+    return { age: Date.now() - cache.timestamp, data };
   } catch (e) {
     return null;
   }
