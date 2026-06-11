@@ -142,6 +142,16 @@
   .btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
 
   /* install strip */
+  .platforms{
+    margin-top:26px;
+    font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;
+    color:var(--muted);display:inline-flex;align-items:center;gap:9px;
+    text-transform:uppercase;
+  }
+  .platforms .dot{color:var(--accent);font-size:9px}
+  .platforms b{color:var(--ink);font-weight:700}
+  .platforms .x{color:var(--faint)}
+
   .install{margin-top:80px;text-align:center}
   .install .kicker{display:block;margin-bottom:16px}
   .install h2{font-size:clamp(24px,4vw,34px);font-weight:800;letter-spacing:-.02em}
@@ -288,6 +298,12 @@
       <button class="btn primary" onclick="copyCmd(this,'npx ctxline-claude')">npx ctxline-claude</button>
       <a class="btn ghost" href="https://github.com/MithunWijayasiri/claudecode-statusline">View on GitHub</a>
     </div>
+
+    <div class="platforms">
+      <span class="dot">●</span>
+      <span>Works on</span>
+      <b>macOS</b><span class="x">·</span><b>Linux</b><span class="x">·</span><b>Windows</b>
+    </div>
   </header>
 
   <!-- INSTALL -->
@@ -362,11 +378,15 @@
 <script>
   function copyCmd(el, text){
     navigator.clipboard.writeText(text).then(function(){
-      var old = el.textContent;
+      if(el.dataset.originalLabel === undefined) el.dataset.originalLabel = el.textContent;
       var isCopy = el.classList.contains('copy');
       el.textContent = isCopy ? 'Copied' : '✓ copied';
       if(isCopy) el.classList.add('done');
-      setTimeout(function(){ el.textContent = old; el.classList.remove('done'); }, 1400);
+      clearTimeout(el.dataset.copyTimeoutId);
+      el.dataset.copyTimeoutId = setTimeout(function(){
+        el.textContent = el.dataset.originalLabel;
+        el.classList.remove('done');
+      }, 1400);
     });
   }
 
