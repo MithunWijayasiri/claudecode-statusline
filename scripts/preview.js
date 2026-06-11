@@ -38,7 +38,14 @@ function render({ dir, model, remaining, usage, resetsInMin }) {
     timeout: 5000,
     env
   });
-  return (res.stdout || '').trim();
+
+  if (res.error) throw res.error;
+  if (res.status !== 0) {
+    throw new Error(`statusline.js exited with ${res.status}\n${res.stderr || ''}`);
+  }
+  const out = (res.stdout || '').trim();
+  if (!out) throw new Error(`statusline.js produced no output\n${res.stderr || ''}`);
+  return out;
 }
 
 console.log(render({

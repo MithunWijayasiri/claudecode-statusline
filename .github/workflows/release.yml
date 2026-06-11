@@ -21,15 +21,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Resolve tag
         id: ver
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}   # via env, never interpolated into the script
         run: |
-          V="${{ github.event.inputs.version }}"
+          V="$VERSION_INPUT"
           if [ -z "$V" ]; then V="$(node -p "require('./package.json').version")"; fi
+          if ! printf '%s' "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)*$'; then
+            echo "::error::Invalid version '$V' — expected semver like 1.2.3."
+            exit 1
+          fi
           echo "tag=v$V" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
