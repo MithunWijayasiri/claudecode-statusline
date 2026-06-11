@@ -51,7 +51,7 @@ function render({ dir, model, remaining, usage, resetsInMin }) {
 console.log(render({
   dir: '/home/me/my-project',
   model: 'Opus 4.8 (1M context)',
-  remaining: 100,   // context 0% used
+  remaining: 55,    // context 45% used
   usage: 14,
   resetsInMin: 21   // renders ~(20m)
 }));
