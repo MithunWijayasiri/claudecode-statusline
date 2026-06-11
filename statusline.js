@@ -52,7 +52,7 @@ function getContextBar(remaining) {
   const effectiveRemaining = remaining ?? 100;
   const used = Math.max(0, Math.min(100, 100 - Math.round(effectiveRemaining)));
 
-  const filled = Math.floor((used / 100) * BAR_WIDTH);
+  const filled = Math.round((used / 100) * BAR_WIDTH);
   const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(BAR_WIDTH - filled);
 
   let coloredBar;
