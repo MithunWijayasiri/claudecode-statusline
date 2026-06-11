@@ -15,7 +15,11 @@ const IS_API_KEY = !!process.env.ANTHROPIC_API_KEY;
 // Cache configuration
 const CACHE_DIR = path.join(os.homedir(), '.claude', 'cache');
 const USAGE_CACHE_FILE = path.join(CACHE_DIR, 'usage-cache.json');
-const CACHE_TTL_MS = 30000; // Cache valid for 30 seconds
+// Fresh: trust the cache and skip the API call entirely (fewer calls, faster render).
+const FRESH_TTL_MS = 30000;            // 30 seconds
+// Stale: used only as a fallback when a live API call fails, so the usage bar stays
+// visible through transient timeouts/errors instead of disappearing.
+const STALE_TTL_MS = 10 * 60 * 1000;   // 10 minutes
 
 // ANSI color codes
 const colors = {
@@ -57,20 +61,37 @@ function getContextBar(remaining) {
   return coloredBar;
 }
 
-// Read cached usage data
-function getCachedUsage() {
+// Render the usage bar from raw data. Called on every read (live or cached) so the
+// reset countdown is always recomputed from resetsAt rather than frozen at fetch time.
+function buildUsageBar(percentage, resetsAt) {
+  let timeStr = '';
+  if (resetsAt) {
+    const diffMins = Math.max(0, Math.floor((new Date(resetsAt) - new Date()) / 60000));
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    timeStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+  }
+
+  const barWidth = 10;
+  const filledWidth = Math.max(0, Math.min(barWidth, Math.round((percentage / 100) * barWidth)));
+  const filled = '█'.repeat(filledWidth);
+  const empty = '░'.repeat(barWidth - filledWidth);
+  const color = getUsageColor(percentage);
+
+  return `${color}${filled}${empty} ${percentage}%${colors.reset}${colors.dim} (${timeStr})${colors.reset}`;
+}
+
+// Read the raw cached usage data ({ timestamp, data: { percentage, resetsAt } }).
+// Returns { age, data } or null. Age-vs-TTL decisions are made by the caller.
+function readCachedUsage() {
   try {
     if (!fs.existsSync(USAGE_CACHE_FILE)) return null;
 
     const cache = JSON.parse(fs.readFileSync(USAGE_CACHE_FILE, 'utf8'));
-    const age = Date.now() - cache.timestamp;
+    // Ignore the legacy string-cache format from older versions.
+    if (!cache || typeof cache.data !== 'object' || cache.data === null) return null;
 
-    // Return cached data if fresh enough
-    if (age < CACHE_TTL_MS) {
-      return cache.data;
-    }
-
-    return null;
+    return { age: Date.now() - cache.timestamp, data: cache.data };
   } catch (e) {
     return null;
   }
@@ -155,38 +176,11 @@ function getApiUsage(callback) {
           // Get 5-hour session usage
           if (usage.five_hour) {
             const percentage = Math.round(usage.five_hour.utilization);
-            const resetsAt = usage.five_hour.resets_at;
+            const resetsAt = usage.five_hour.resets_at || null;
 
-            // Parse reset time
-            let timeStr = '';
-            if (resetsAt) {
-              const resetDate = new Date(resetsAt);
-              const now = new Date();
-              const diffMs = resetDate - now;
-              const diffMins = Math.floor(diffMs / 60000);
-              const hours = Math.floor(diffMins / 60);
-              const mins = diffMins % 60;
-
-              if (hours > 0) {
-                timeStr = `${hours}h${mins}m`;
-              } else {
-                timeStr = `${mins}m`;
-              }
-            }
-
-            // Build bar
-            const barWidth = 10;
-            const filledWidth = Math.round((percentage / 100) * barWidth);
-            const filled = '\u2588'.repeat(filledWidth);
-            const empty = '\u2591'.repeat(barWidth - filledWidth);
-            const color = getUsageColor(percentage);
-
-            const bar = `${color}${filled}${empty} ${percentage}%${colors.reset}${colors.dim} (${timeStr})${colors.reset}`;
-
-            // Cache the result for other sessions
-            setCachedUsage(bar);
-
-            callback(bar);
+            // Cache the raw data (shared across sessions); render the bar from it.
+            setCachedUsage({ percentage, resetsAt });
+            callback(buildUsageBar(percentage, resetsAt));
           } else {
             callback(null);
           }
@@ -208,17 +202,24 @@ function getApiUsage(callback) {
   }
 }
 
-// Get usage with cache fallback
+// Get usage, cache-first.
 function getUsageWithCache(callback) {
-  // First, try to get fresh data from API
-  getApiUsage((freshData) => {
-    if (freshData) {
-      // Got fresh data, use it
-      callback(freshData);
+  const cached = readCachedUsage();
+
+  // Cache is fresh -> render it and skip the API entirely (fewer calls, faster).
+  if (cached && cached.age < FRESH_TTL_MS) {
+    return callback(buildUsageBar(cached.data.percentage, cached.data.resetsAt));
+  }
+
+  // Cache is stale or missing -> refresh from the API.
+  getApiUsage((freshBar) => {
+    if (freshBar) {
+      callback(freshBar);
+    } else if (cached && cached.age < STALE_TTL_MS) {
+      // API failed/timed out, but recent cache exists -> show it instead of nothing.
+      callback(buildUsageBar(cached.data.percentage, cached.data.resetsAt));
     } else {
-      // API failed or timed out, try cache
-      const cachedData = getCachedUsage();
-      callback(cachedData);
+      callback(null);
     }
   });
 }
