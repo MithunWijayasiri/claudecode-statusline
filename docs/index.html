@@ -201,6 +201,7 @@
   .insp-seg{cursor:pointer;position:relative;white-space:nowrap;padding:4px 1px;border-radius:4px;transition:color .18s,opacity .18s}
   .insp-line:hover .insp-seg{opacity:.5}
   .insp-seg:hover,.insp-seg.sel{color:#fff;opacity:1}
+  .insp-seg:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;opacity:1}
   .insp-seg.sel::after{content:"";position:absolute;left:3px;right:3px;bottom:-3px;height:2px;background:var(--accent);border-radius:2px}
   .insp-panel{margin-top:26px;display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;
     background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px 26px;transition:border-color .2s}
@@ -334,9 +335,9 @@
       <p>Read left to right, it's the whole picture. Everything is best-effort and silent — if a source is missing, the line just skips it and still renders.</p>
     </div>
     <div class="inspect">
-      <div class="term"><div class="line insp-line" id="insp-line"></div></div>
-      <p class="insp-hint">↑ hover or tap a segment to inspect it</p>
-      <div class="insp-panel" id="insp-panel">
+      <div class="term"><div class="line insp-line" id="insp-line" role="tablist" aria-label="Statusline segments"></div></div>
+      <p class="insp-hint">↑ hover, tap, or use arrow keys to inspect a segment</p>
+      <div class="insp-panel" id="insp-panel" role="tabpanel" tabindex="0">
         <div class="insp-badge" id="insp-badge">DIR</div>
         <div class="insp-body">
           <h3 id="insp-title"></h3>
@@ -419,19 +420,42 @@
        desc:'The in-progress to-do surfaces inline whenever there is active work.',
        tok:'<span class="dim">Refactoring usage cache</span>'}
     ];
-    var badge=document.getElementById('insp-badge'), title=document.getElementById('insp-title'),
+    var panel=document.getElementById('insp-panel'),
+        badge=document.getElementById('insp-badge'), title=document.getElementById('insp-title'),
         desc=document.getElementById('insp-desc'), field=document.getElementById('insp-field'), segs=[];
     SIGNALS.forEach(function(s,i){
-      if(i) line.insertAdjacentHTML('beforeend','<span class="sep">│</span>');
-      var el=document.createElement('span'); el.className='insp-seg'; el.innerHTML=s.tok;
+      if(i) line.insertAdjacentHTML('beforeend','<span class="sep" aria-hidden="true">│</span>');
+      var el=document.createElement('span');
+      el.className='insp-seg'; el.id='insp-tab-'+i; el.innerHTML=s.tok;
+      el.setAttribute('role','tab');
+      el.setAttribute('aria-selected','false');
+      el.setAttribute('aria-label', s.tag+' — '+s.title);
+      el.tabIndex=-1;
       el.addEventListener('mouseenter',function(){select(i);});
-      el.addEventListener('click',function(){select(i);});
+      el.addEventListener('click',function(){select(i);el.focus();});
+      el.addEventListener('keydown',function(e){onKey(e,i);});
       line.appendChild(el); segs.push(el);
     });
     function select(i){
-      segs.forEach(function(el,j){el.classList.toggle('sel',i===j);});
+      segs.forEach(function(el,j){
+        var on=i===j;
+        el.classList.toggle('sel',on);
+        el.setAttribute('aria-selected',on?'true':'false');
+        el.tabIndex=on?0:-1;
+      });
       var s=SIGNALS[i];
       badge.textContent=s.tag; title.textContent=s.title; desc.textContent=s.desc; field.textContent=s.field;
+      panel.setAttribute('aria-labelledby','insp-tab-'+i);
+    }
+    function onKey(e,i){
+      var n=SIGNALS.length, t=-1;
+      if(e.key==='ArrowRight'||e.key==='ArrowDown') t=(i+1)%n;
+      else if(e.key==='ArrowLeft'||e.key==='ArrowUp') t=(i-1+n)%n;
+      else if(e.key==='Home') t=0;
+      else if(e.key==='End') t=n-1;
+      else if(e.key==='Enter'||e.key===' ') { select(i); e.preventDefault(); return; }
+      else return;
+      e.preventDefault(); select(t); segs[t].focus();   // roving tabindex + automatic activation
     }
     select(0);
   })();
