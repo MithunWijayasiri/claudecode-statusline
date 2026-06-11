@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Statusline — Everything that matters, on one line.</title>
+<meta name="description" content="A lightweight, zero-config statusline for Claude Code. Monitor context usage, 5-hour session limits, and weekly allowance without leaving Claude Code.">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Claude Code Statusline">
+<meta property="og:description" content="Everything that matters, on one line. Context usage, session limits, and weekly allowance — live, inside Claude Code.">
+<meta property="og:url" content="https://mithunwijayasiri.github.io/claudecode-statusline/">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#ECE7DE;
+    --card:#F2EEE6;
+    --ink:#1c1a17;
+    --muted:#928c80;
+    --faint:#b3ad9f;
+    --line:#dcd6ca;
+    --accent:#E0734E;
+    --accent-soft:#e8a78a;
+    --term-bg:#16140f;
+    --term-dim:#6f6a5c;
+    --term-fg:#e9e3d4;
+    --green:#7ec77f;
+    --green-dim:#34492f;
+    --radius:22px;
+    --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    --sans:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+
+  /* eyebrow / kicker */
+  .kicker{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--faint);
+    font-weight:500;
+  }
+  .kicker .dot{color:var(--accent)}
+
+  /* nav */
+  nav{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 0;
+  }
+  nav .brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);
+    font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
+  nav .brand b{color:var(--ink);font-weight:700}
+  nav .brand .pulse{width:9px;height:9px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 0 0 rgba(224,115,78,.5);animation:pulse 2.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(224,115,78,.45)}70%{box-shadow:0 0 0 9px rgba(224,115,78,0)}100%{box-shadow:0 0 0 0 rgba(224,115,78,0)}}
+  nav .links{display:flex;gap:26px;font-family:var(--mono);font-size:12.5px;
+    letter-spacing:.04em;color:var(--muted)}
+  nav .links a{text-decoration:none;transition:color .15s}
+  nav .links a:hover{color:var(--ink)}
+  @media(max-width:640px){nav .links{display:none}}
+
+  /* hero card */
+  .hero{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:28px;
+    padding:72px 32px 84px;
+    text-align:center;
+    box-shadow:0 1px 0 rgba(255,255,255,.6) inset, 0 24px 60px -40px rgba(28,26,23,.4);
+  }
+  .hero .kicker{display:inline-block;margin-bottom:26px}
+  .hero h1{
+    font-family:var(--sans);
+    font-weight:800;
+    font-size:clamp(34px,6.2vw,62px);
+    line-height:1.04;
+    letter-spacing:-.025em;
+    max-width:15ch;
+    margin:0 auto;
+  }
+  .hero p.sub{
+    margin:22px auto 0;
+    max-width:54ch;
+    color:var(--muted);
+    font-size:clamp(15px,2.2vw,18px);
+  }
+
+  /* terminal statusline mock */
+  .term{
+    background:var(--term-bg);
+    border-radius:13px;
+    padding:15px 18px;
+    margin:44px auto 0;
+    width:100%;
+    overflow:hidden;
+    box-shadow:0 26px 50px -30px rgba(0,0,0,.65);
+  }
+  .term .line{
+    font-family:var(--mono);
+    font-size:clamp(10px,1.42vw,14px);
+    font-weight:500;
+    white-space:nowrap;
+    display:flex;align-items:center;justify-content:center;gap:0;
+    color:var(--term-fg);
+  }
+  .term .sep{color:var(--term-dim);padding:0 clamp(6px,0.7vw,12px)}
+  .term .proj{color:var(--accent);font-weight:700}
+  .term .dim{color:var(--term-dim)}
+  .term .lbl{color:#a7a191}
+  .term .pct{font-weight:700}
+  .bar{display:inline-flex;gap:2px;vertical-align:middle;margin:0 7px 0 5px}
+  .bar i{width:6px;height:12px;border-radius:1.5px;background:var(--green-dim);display:inline-block}
+  .bar i.on{background:var(--green)}
+
+  .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:40px}
+  .btn{
+    font-family:var(--mono);font-size:14px;font-weight:500;
+    text-decoration:none;border-radius:11px;padding:13px 22px;
+    display:inline-flex;align-items:center;gap:10px;transition:transform .12s,background .15s,border-color .15s;
+    border:1px solid transparent;cursor:pointer;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--ink);color:var(--bg)}
+  .btn.primary:hover{background:#000}
+  .btn.ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+  .btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* install strip */
+  .install{margin-top:80px;text-align:center}
+  .install .kicker{display:block;margin-bottom:16px}
+  .install h2{font-size:clamp(24px,4vw,34px);font-weight:800;letter-spacing:-.02em}
+  .cmd{
+    margin:28px auto 0;max-width:520px;
+    background:var(--term-bg);border-radius:13px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:16px 16px 16px 22px;
+    box-shadow:0 20px 44px -30px rgba(0,0,0,.55);
+  }
+  .cmd code{font-family:var(--mono);font-size:15px;color:var(--term-fg);text-align:left}
+  .cmd code .pr{color:var(--green)}
+  .cmd code .cm{color:var(--term-dim)}
+  .copy{
+    font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+    background:#262318;color:#cfc8b7;border:1px solid #322e22;border-radius:8px;
+    padding:8px 12px;cursor:pointer;transition:background .15s,color .15s;flex:none;
+  }
+  .copy:hover{background:#322e22;color:#fff}
+  .copy.done{color:var(--green);border-color:var(--green-dim)}
+  .install small{display:block;margin-top:16px;color:var(--muted);font-family:var(--mono);font-size:12.5px}
+
+  /* sections */
+  section.block{padding:72px 0 0}
+  .sec-head{text-align:center;margin-bottom:34px}
+  .sec-head .kicker{display:block;margin-bottom:14px}
+  .sec-head h2{font-size:clamp(26px,4.4vw,40px);font-weight:800;letter-spacing:-.025em}
+  .sec-head p{color:var(--muted);max-width:50ch;margin:14px auto 0}
+
+  /* feature grid */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.grid{grid-template-columns:1fr}}
+  .feat{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:18px 20px;transition:transform .15s,border-color .15s;
+  }
+  .feat:hover{transform:translateY(-3px);border-color:var(--accent-soft)}
+  .feat .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .feat h3{margin:7px 0 5px;font-size:16px;font-weight:700;letter-spacing:-.01em}
+  .feat p{color:var(--muted);font-size:13.5px;line-height:1.5}
+
+  /* how it works */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:820px){.steps{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.steps{grid-template-columns:1fr}}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .step .n{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.1em}
+  .step h4{margin:7px 0 5px;font-size:15px;font-weight:700}
+  .step p{color:var(--muted);font-size:13.5px;line-height:1.5}
+
+  /* faq */
+  .faq{max-width:760px;margin:0 auto}
+  details{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:0 22px;margin-bottom:12px;transition:border-color .15s;
+  }
+  details[open]{border-color:var(--accent-soft)}
+  summary{
+    cursor:pointer;list-style:none;padding:18px 0;font-weight:700;font-size:15.5px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+  }
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";font-family:var(--mono);color:var(--accent);font-size:20px;transition:transform .2s;flex:none}
+  details[open] summary::after{transform:rotate(45deg)}
+  details p{color:var(--muted);font-size:14.5px;padding:0 0 20px;margin-top:-4px}
+  details p code{font-family:var(--mono);font-size:13px;background:var(--bg);padding:2px 6px;border-radius:5px;border:1px solid var(--line)}
+
+  /* footer */
+  footer{margin-top:104px;border-top:1px solid var(--line);padding:40px 0 56px;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+  footer .l{font-family:var(--mono);font-size:12.5px;color:var(--muted);letter-spacing:.04em}
+  footer .l b{color:var(--ink)}
+  footer .r{display:flex;gap:22px;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+  footer .r a{text-decoration:none;transition:color .15s}
+  footer .r a:hover{color:var(--accent)}
+
+  /* ---- animations ---- */
+  [data-anim]{opacity:0;transform:translateY(18px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+  [data-anim].in{opacity:1;transform:none}
+
+  /* statusline mock: bars grow in, then active ones breathe */
+  .bar i{transform-origin:bottom;animation:grow .5s cubic-bezier(.2,.8,.2,1) both}
+  .term .line i:nth-child(1){animation-delay:.30s}
+  .term .line i:nth-child(2){animation-delay:.36s}
+  .term .line i:nth-child(3){animation-delay:.42s}
+  .term .line i:nth-child(4){animation-delay:.48s}
+  @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+  .bar i.on{position:relative}
+  .bar i.on::after{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--green);
+    opacity:0;animation:breathe 3.2s ease-in-out 1s infinite}
+  @keyframes breathe{0%,100%{opacity:0}50%{opacity:.5}}
+
+  .pulse{will-change:box-shadow}
+
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none!important;transition:none!important}
+    [data-anim]{opacity:1!important;transform:none!important}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav>
+    <div class="brand"><span class="pulse"></span> <b>ctxline</b>&nbsp;· claude</div>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="#how">How it works</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/MithunWijayasiri/claudecode-statusline">GitHub ↗</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <span class="kicker"><span class="dot">●</span>&nbsp; Claude Code · Statusline</span>
+    <h1>Everything that matters, on one line.</h1>
+    <p class="sub">A lightweight, zero-config statusline for Claude Code. Track context, your 5-hour session, and weekly allowance — without ever leaving the terminal.</p>
+
+    <div class="term" aria-label="Example statusline">
+      <div class="line">
+        <span class="proj">my-project</span>
+        <span class="sep">│</span>
+        <span>Opus&nbsp;4.8<span class="dim">(1M context)</span></span>
+        <span class="sep">│</span>
+        <span class="lbl">context:</span>
+        <span class="bar"><i class="on"></i><i class="on"></i><i></i><i></i></span>
+        <span class="pct">45%</span>
+        <span class="sep">│</span>
+        <span class="lbl">current:</span>
+        <span class="bar"><i class="on"></i><i></i><i></i><i></i></span>
+        <span class="pct">14%</span>&nbsp;<span class="dim">(4h21m)</span>
+        <span class="sep">│</span>
+        <span class="lbl">weekly:</span>
+        <span class="bar"><i class="on"></i><i class="on"></i><i></i><i></i></span>
+        <span class="pct">31%</span>&nbsp;<span class="dim">(2d14h)</span>
+      </div>
+    </div>
+
+    <div class="cta">
+      <button class="btn primary" onclick="copyCmd(this,'npx ctxline-claude')">npx ctxline-claude</button>
+      <a class="btn ghost" href="https://github.com/MithunWijayasiri/claudecode-statusline">View on GitHub</a>
+    </div>
+  </header>
+
+  <!-- INSTALL -->
+  <section class="install" id="install">
+    <span class="kicker">One command · zero config</span>
+    <h2>Install in seconds</h2>
+    <div class="cmd">
+      <code><span class="pr">$</span> npx ctxline-claude</code>
+      <button class="copy" onclick="copyCmd(this,'npx ctxline-claude')">Copy</button>
+    </div>
+    <small>Then restart Claude Code or start a new session. That's it. <span style="color:var(--faint)">(bunx also works)</span></small>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="block" id="features">
+    <div class="sec-head">
+      <span class="kicker">What it shows</span>
+      <h2>Six signals, one line</h2>
+      <p>Everything is best-effort and silent — if a source is missing, the line still renders.</p>
+    </div>
+    <div class="grid">
+      <div class="feat"><div class="tag">DIR</div><h3>Directory</h3><p>The current working directory, so you always know where Claude is operating.</p></div>
+      <div class="feat"><div class="tag">MODEL</div><h3>Active model</h3><p>Opus, Sonnet, or Haiku — plus the context window size at a glance.</p></div>
+      <div class="feat"><div class="tag">CONTEXT</div><h3>Context bar</h3><p>A visual bar of context-window usage that shifts color as it fills up.</p></div>
+      <div class="feat"><div class="tag">CURRENT</div><h3>5-hour session</h3><p>Live session limit with a reset countdown, pulled from the usage API.</p></div>
+      <div class="feat"><div class="tag">WEEKLY</div><h3>Weekly allowance</h3><p>Your weekly usage and the time remaining until the weekly reset.</p></div>
+      <div class="feat"><div class="tag">TASK</div><h3>Current task</h3><p>The in-progress to-do surfaces inline whenever there's active work.</p></div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="block" id="how">
+    <div class="sec-head">
+      <span class="kicker">Under the hood</span>
+      <h2>Fast, cached, never breaks</h2>
+      <p>A single zero-dependency Node script. It always prints, and never hangs or throws.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">01</div><h4>Reads session</h4><p>Context comes straight from Claude Code's session data on every render.</p></div>
+      <div class="step"><div class="n">02</div><h4>Fetches usage</h4><p>5-hour and weekly limits come from Anthropic's own usage API — credentials never leave your machine.</p></div>
+      <div class="step"><div class="n">03</div><h4>Caches it</h4><p>Usage is cached and shared across sessions, with adaptive timeouts so the line stays snappy.</p></div>
+      <div class="step"><div class="n">04</div><h4>Falls back</h4><p>Every failure path degrades silently to cached or partial output. The statusline always renders.</p></div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="block" id="faq">
+    <div class="sec-head">
+      <span class="kicker">FAQ</span>
+      <h2>Good questions</h2>
+    </div>
+    <div class="faq">
+      <details><summary>Does this use the same data as /usage?</summary><p>Yes. Usage information comes directly from Anthropic's usage API — the same source <code>/usage</code> reads.</p></details>
+      <details><summary>Does it work with API keys?</summary><p>Yes. The statusline automatically detects subscription vs API-key usage. API-key users simply skip the usage fetch.</p></details>
+      <details><summary>Can it break Claude Code?</summary><p>No. All failures are handled silently and the statusline always renders something. It never hangs or throws.</p></details>
+      <details><summary>Does it expose my API keys or auth tokens?</summary><p>No. Your credentials never leave your machine. The OAuth token is read locally only to authenticate the request to Anthropic's own usage API. Nothing is sent to any third party, logged, or cached — only the resulting usage percentages are stored locally.</p></details>
+      <details><summary>How do I uninstall it?</summary><p>Run <code>npx ctxline-claude uninstall</code>. It removes the statusline entry from your settings (backed up first), deletes the hook script, and clears the usage cache. Other settings are left untouched.</p></details>
+    </div>
+  </section>
+
+  <footer>
+    <div class="l">Built for the <b>Claude Code</b> community · MIT licensed</div>
+    <div class="r">
+      <a href="https://www.npmjs.com/package/ctxline-claude">npm ↗</a>
+      <a href="https://github.com/MithunWijayasiri/claudecode-statusline">GitHub ↗</a>
+      <a href="https://github.com/MithunWijayasiri/claudecode-statusline/issues">Issues ↗</a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  function copyCmd(el, text){
+    navigator.clipboard.writeText(text).then(function(){
+      var old = el.textContent;
+      var isCopy = el.classList.contains('copy');
+      el.textContent = isCopy ? 'Copied' : '✓ copied';
+      if(isCopy) el.classList.add('done');
+      setTimeout(function(){ el.textContent = old; el.classList.remove('done'); }, 1400);
+    });
+  }
+
+  // ---- entrance + scroll-reveal ----
+  (function(){
+    var reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    // tag elements that should animate
+    var sel = '.hero .kicker,.hero h1,.hero .sub,.term,.hero .cta,' +
+              '.install .kicker,.install h2,.install .cmd,.install small,' +
+              '.sec-head,.feat,.step,details';
+    var els = Array.prototype.slice.call(document.querySelectorAll(sel));
+    if(reduce){ return; } // CSS already shows everything; skip JS motion
+    els.forEach(function(el){ el.setAttribute('data-anim',''); });
+
+    function reveal(el, i){
+      el.style.transitionDelay = (i*70) + 'ms';
+      el.classList.add('in');
+    }
+
+    // hero block animates immediately, staggered
+    var hero = Array.prototype.slice.call(document.querySelectorAll(
+      '.hero .kicker,.hero h1,.hero .sub,.term,.hero .cta'));
+    hero.forEach(function(el,i){ setTimeout(function(){ reveal(el,0); }, 80 + i*110); });
+
+    // everything else reveals on scroll, staggered within its row
+    var rest = els.filter(function(el){ return hero.indexOf(el) === -1; });
+    if('IntersectionObserver' in window){
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if(e.isIntersecting){
+            var group = e.target.parentElement ? e.target.parentElement.children : [e.target];
+            var idx = Array.prototype.indexOf.call(group, e.target);
+            reveal(e.target, idx % 6);
+            io.unobserve(e.target);
+          }
+        });
+      }, {rootMargin:'0px 0px -8% 0px', threshold:.12});
+      rest.forEach(function(el){ io.observe(el); });
+    } else {
+      rest.forEach(function(el){ reveal(el,0); });
+    }
+  })();
+</script>
+</body>
+</html>
