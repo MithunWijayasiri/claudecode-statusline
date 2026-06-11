@@ -1,10 +1,33 @@
-# Claude Code Statusline
+<h1 align="center">Claude Code Statusline</h1>
 
-![Claude Code Statusline](preview.svg)
+<p align="center">
+  A lightweight, zero-config statusline for Claude Code.
+</p>
 
-A single-file, zero-config statusline for [Claude Code](https://github.com/anthropics/claude-code). It shows your directory, model, **context window usage**, and **both Claude usage limits** — your **current 5-hour session** and your **weekly** allowance — at a glance. The usage bars read the same data as `/usage`, straight from Anthropic's API. Auto-detects subscription vs API key.
+<p align="center">
+  <a href="https://www.npmjs.com/package/ctxline-claude">
+    <img src="https://img.shields.io/npm/v/ctxline-claude" alt="npm version">
+  </a>
+  <a href="https://www.npmjs.com/package/ctxline-claude">
+    <img src="https://img.shields.io/npm/dm/ctxline-claude" alt="npm downloads">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/MithunWijayasiri/claudecode-statusline" alt="license">
+  </a>
+  <a href="https://github.com/MithunWijayasiri/claudecode-statusline/stargazers">
+    <img src="https://img.shields.io/github/stars/MithunWijayasiri/claudecode-statusline" alt="stars">
+  </a>
+</p>
 
-An easy way to keep an eye on your usage at a glance.
+<p align="center">
+  <img src="preview.svg" alt="Claude Code Statusline">
+</p>
+
+<p align="center">
+  Monitor context usage, session limits, and weekly allowance without leaving Claude Code.
+</p>
+
+See your **current directory**, **active model**, **context window usage**, and **Claude usage limits** at a glance — including both your **current 5-hour session** and **weekly allowance**.
 
 ## Install
 
@@ -82,7 +105,8 @@ Remove-Item "$env:USERPROFILE\.claude\cache\usage-cache.json" -ErrorAction Silen
 | **Weekly** | Weekly usage allowance + time until the weekly reset (subscription users) |
 | **Task** | The in-progress todo, when there is one |
 
-**Color bands:** 🟢 `<50%` · 🟡 `50–75%` · 🟠 `75–90%` · 🔴 `>90%` (blinking)
+> \[!NOTE\] Usage bars change color automatically as you approach your
+> limits.
 
 ## How it works
 
@@ -90,6 +114,36 @@ Remove-Item "$env:USERPROFILE\.claude\cache\usage-cache.json" -ErrorAction Silen
 - **Adaptive timing** — 1.5s timeout on the first prompt (cold start), 1.2s after (connection reused).
 - **Caching** — usage is cached at `~/.claude/cache/usage-cache.json`, shared across sessions. Within 30s the cache renders directly (the API call is skipped); if a live call fails, the last value (up to 10 min old) is shown so the bar never vanishes. The reset countdown recomputes every render.
 - **Never breaks** — every failure path falls back silently; the statusline always prints.
+
+## FAQ
+
+<details>
+<summary>Does this use the same data as /usage?</summary>
+
+Yes. Usage information comes directly from Anthropic's usage API.
+
+</details>
+
+<details>
+<summary>Does it work with API keys?</summary>
+
+Yes. The statusline automatically detects subscription vs API-key usage.
+
+</details>
+
+<details>
+<summary>Can it break Claude Code?</summary>
+
+No. All failures are handled silently and the statusline always renders.
+
+</details>
+
+<details>
+<summary>Does it expose my API keys / auth tokens?</summary>
+
+No. Your credentials never leave your machine. The OAuth token is read locally (from `~/.claude/.credentials.json` or the macOS keychain) only to authenticate the request to Anthropic's own usage API — the same endpoint `/usage` uses. Nothing is sent to any third party, logged, or cached; only the resulting usage percentages are stored locally.
+
+</details>
 
 ## License
 
