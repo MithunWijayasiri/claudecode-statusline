@@ -8,6 +8,7 @@ const path = require('node:path');
 
 const SCRIPT = path.join(__dirname, '..', 'statusline.js');
 const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-preview-'));
+process.on('exit', () => fs.rmSync(FAKE_HOME, { recursive: true, force: true }));
 
 function render(input) {
   const res = spawnSync(process.execPath, [SCRIPT], {

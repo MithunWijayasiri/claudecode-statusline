@@ -2,7 +2,7 @@
 // Spawns the real script and asserts on its stdin -> stdout contract.
 // Fully self-contained: no network, no credentials, no API key required.
 
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert');
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -13,6 +13,7 @@ const SCRIPT = path.join(__dirname, '..', 'statusline.js');
 
 // Empty fake HOME so the todos/credentials lookups find nothing -> deterministic.
 const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-test-'));
+after(() => fs.rmSync(FAKE_HOME, { recursive: true, force: true }));
 
 // Run statusline.js with the given stdin string. Returns { code, raw, clean }.
 function run(input) {
