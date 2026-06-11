@@ -37,8 +37,19 @@ const colors = {
   yellow: '\x1b[33m',
   orange: '\x1b[38;5;208m',
   red: '\x1b[31m',
+  purple: '\x1b[38;5;135m',
   blink: '\x1b[5m'
 };
+
+// Color for the thinking-effort indicator. Levels rank low < medium < high < xhigh < max
+// < ultracode; only the top two are highlighted — "max" red, "ultracode" purple. Every
+// other level (including xhigh) renders dim like the rest of the metadata.
+function getEffortColor(level) {
+  const lvl = String(level).toLowerCase();
+  if (lvl === 'max') return colors.red;
+  if (lvl === 'ultracode') return colors.purple;
+  return colors.dim;
+}
 
 function getUsageColor(percentage) {
   if (percentage < 50) return colors.green;
@@ -361,7 +372,7 @@ function outputStatus(data, usage) {
     const task = getCurrentTask(sessionId);
     const parts = [];
     parts.push(branch ? `${dirname} ${colors.dim}⎇ ${branch}${colors.reset}` : dirname);
-    parts.push(effort ? `${model}${colors.dim} · ${effort}${colors.reset}` : model);
+    parts.push(effort ? `${model}${getEffortColor(effort)} · ${effort}${colors.reset}` : model);
     parts.push(`CTX ${contextBar}`);
 
     if (usage?.current) parts.push(`5h ${usage.current}`);

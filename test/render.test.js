@@ -80,6 +80,8 @@ const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
 const ORANGE = '\x1b[38;5;208m';
 const RED = '\x1b[31m';
+const PURPLE = '\x1b[38;5;135m';
+const DIM = '\x1b[2m';
 const BLINK = '\x1b[5m';
 
 test('line assembly: dir basename | model | context, separated by │', () => {
@@ -138,6 +140,25 @@ test('no effort field -> model segment unchanged', () => {
   const { clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8'));
   const parts = clean.split(' │ ');
   assert.strictEqual(parts[1], 'Opus 4.8');
+});
+
+test('effort = max is red', () => {
+  const { raw, clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8', 'max'));
+  assert.strictEqual(clean.split(' │ ')[1], 'Opus 4.8 · max');
+  assert.ok(raw.includes(RED), 'expected red for max effort');
+});
+
+test('effort = ultracode is purple', () => {
+  const { raw, clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8', 'ultracode'));
+  assert.strictEqual(clean.split(' │ ')[1], 'Opus 4.8 · ultracode');
+  assert.ok(raw.includes(PURPLE), 'expected purple for ultracode effort');
+});
+
+test('effort = xhigh is dim (not highlighted red/purple)', () => {
+  const { raw, clean } = run(fixture(40, '/no/such/repo', 'Opus 4.8', 'xhigh'));
+  assert.strictEqual(clean.split(' │ ')[1], 'Opus 4.8 · xhigh');
+  assert.ok(raw.includes(DIM), 'xhigh effort uses the dim style');
+  assert.ok(!raw.includes(PURPLE) && !raw.includes(RED), 'xhigh must not be highlighted');
 });
 
 test('context bar shows used% = 100 - remaining', () => {

@@ -58,14 +58,23 @@ function render({ dir, model, remaining, current, currentResetsInMin, weekly, we
   return out;
 }
 
-console.log(render({
+const base = {
   dir: 'my-project',
   branch: 'main',
   model: 'Opus 4.8 (1M context)',
-  effort: 'high',
   remaining: 55,             // context 45% used
   current: 14,
   currentResetsInMin: 261,   // renders ~(4h21m)
   weekly: 31,
   weeklyResetsInMin: 3720    // renders ~(2d14h)
-}));
+};
+
+// Primary line (default effort).
+console.log(render({ ...base, effort: 'high' }));
+
+// Thinking-effort color variants: only the top two levels are highlighted.
+// (low < medium < high < xhigh < max < ultracode; xhigh stays dim, max red, ultracode purple.)
+console.log('\nThinking-effort levels:');
+for (const effort of ['xhigh', 'max', 'ultracode']) {
+  console.log(`  ${effort.padEnd(9)} ${render({ ...base, effort })}`);
+}
