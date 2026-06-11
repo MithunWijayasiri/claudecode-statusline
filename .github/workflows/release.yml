@@ -1,0 +1,75 @@
+name: Release
+
+# Manually triggered after an npm publish. Creates a GitHub release with:
+# - the statusline preview (colors stripped, GitHub markdown can't render ANSI)
+# - auto-generated notes from commits/PRs since the previous release
+# - Source code (zip/tar.gz), which GitHub attaches automatically
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without the leading 'v' (blank = use package.json version)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write   # required to create the tag + release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Resolve tag
+        id: ver
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}   # via env, never interpolated into the script
+        run: |
+          V="$VERSION_INPUT"
+          if [ -z "$V" ]; then V="$(node -p "require('./package.json').version")"; fi
+          if ! printf '%s' "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)*$'; then
+            echo "::error::Invalid version '$V' — expected semver like 1.2.3."
+            exit 1
+          fi
+          echo "tag=v$V" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        run: npm test
+
+      - name: Render statusline preview
+        run: node scripts/preview.js | perl -pe 's/\x1b\[[0-9;]*m//g' > preview.txt
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists — bump the version in package.json first."
+            exit 1
+          fi
+
+          NOTES="$(gh api "repos/${{ github.repository }}/releases/generate-notes" \
+            -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" --jq .body)"
+
+          {
+            echo "### Statusline preview"
+            echo ""
+            echo "_Sample line — colors render in a real terminal; stripped here._"
+            echo ""
+            echo '```text'
+            cat preview.txt
+            echo '```'
+            echo ""
+            echo "$NOTES"
+          } > body.md
+
+          gh release create "$TAG" --title "$TAG" --notes-file body.md
