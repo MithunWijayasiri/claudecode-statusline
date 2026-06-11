@@ -6,7 +6,7 @@ A real-time statusline for [Claude Code](https://github.com/anthropics/claude-co
 
 ## Why This Statusline
 
-There are only two things that really matter when vibe-coding: **Context Window** and **Usage** left in your session. Context matters because models have been shown to perform worse as context grows (context rot), and usage matters so you can squeeze every last token out of your session instead of leaving value on the table. This statusline keeps both front and center so you can focus on building.
+Two metrics have the biggest impact on a Claude Code session: **context window usage** and **remaining session usage**. Model output quality tends to degrade as the context window fills (often called "context rot"), so keeping an eye on it helps you compact or reset at the right time. Session usage tells you how much of your current limit remains, so you can plan work before hitting a reset. This statusline surfaces both at a glance, letting you stay focused on the task rather than guessing where you stand.
 
 ## Requirements
 
@@ -72,6 +72,49 @@ cd claudecode-statusline
 
 4. **Restart Claude Code** or start a new session.
 
+## Uninstall
+
+### Quick Uninstall (Recommended)
+
+```bash
+npx claudecode-statusline uninstall
+```
+
+This removes the `statusLine` entry from `~/.claude/settings.json` (backing the file up first, and leaving any other settings intact), deletes `~/.claude/hooks/statusline.js`, and clears the cached usage data. Restart Claude Code afterward. If `settings.json` points to a different statusline, it's left untouched.
+
+### Manual Uninstall
+
+The installer only does two things: it copies `statusline.js` into `~/.claude/hooks/` and adds a `statusLine` block to `~/.claude/settings.json`. To fully remove it, undo both.
+
+1. **Remove the `statusLine` block from `~/.claude/settings.json`.**
+
+   Open the file and delete this section:
+
+   ```json
+   "statusLine": {
+     "type": "command",
+     "command": "node ~/.claude/hooks/statusline.js"
+   }
+   ```
+
+   (The installer saved a timestamped backup, e.g. `settings.json.backup.<number>`, if you'd rather restore that.)
+
+2. **Delete the script (and optional cache):**
+
+   ```bash
+   # macOS / Linux
+   rm ~/.claude/hooks/statusline.js
+   rm -f ~/.claude/cache/usage-cache.json   # optional: clears cached usage data
+   ```
+
+   ```powershell
+   # Windows (PowerShell)
+   Remove-Item "$env:USERPROFILE\.claude\hooks\statusline.js"
+   Remove-Item "$env:USERPROFILE\.claude\cache\usage-cache.json" -ErrorAction SilentlyContinue
+   ```
+
+3. **Restart Claude Code** or start a new session. The statusline is gone.
+
 ## Features
 
 - **Context Usage**: Visual bar showing token usage (green → yellow → orange → red)
@@ -112,14 +155,12 @@ cd claudecode-statusline
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT
 
 ## Credits
 
-Created by [@MithunWijayasiri](https://github.com/MithunWijayasiri)
+Originally created by [@TahaSabir0](https://github.com/TahaSabir0).
 
 Built for the [Claude Code](https://github.com/anthropics/claude-code) community.
 
 ---
-
-**Star ⭐ this repo if you find it useful!**
