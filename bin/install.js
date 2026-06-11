@@ -16,7 +16,7 @@ const yellow = '\x1b[33m';
 const cyan = '\x1b[36m';
 const reset = '\x1b[0m';
 
-// Uninstall mode: `npx claudecode-statusline uninstall` (additive — plain install is unchanged)
+// Uninstall mode: `npx ctxline-claude uninstall` (additive — plain install is unchanged)
 const mode = (process.argv[2] || '').toLowerCase();
 if (mode === 'uninstall' || mode === 'remove') {
   runUninstall();

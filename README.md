@@ -19,13 +19,13 @@ Two metrics have the biggest impact on a Claude Code session: **context window u
 ### Quick Install (Recommended)
 
 ```bash
-npx claudecode-statusline
+npx ctxline-claude
 ```
 
 Or with bun:
 
 ```bash
-bunx claudecode-statusline
+bunx ctxline-claude
 ```
 
 Restart Claude Code or start a new session.
@@ -77,7 +77,7 @@ cd claudecode-statusline
 ### Quick Uninstall (Recommended)
 
 ```bash
-npx claudecode-statusline uninstall
+npx ctxline-claude uninstall
 ```
 
 This removes the `statusLine` entry from `~/.claude/settings.json` (backing the file up first, and leaving any other settings intact), deletes `~/.claude/hooks/statusline.js`, and clears the cached usage data. Restart Claude Code afterward. If `settings.json` points to a different statusline, it's left untouched.
