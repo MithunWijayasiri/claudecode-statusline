@@ -5,7 +5,7 @@ set -e
 
 HOOKS_DIR="$HOME/.claude/hooks"
 SETTINGS_FILE="$HOME/.claude/settings.json"
-REPO_URL="https://raw.githubusercontent.com/TahaSabir0/claude-statusline/main"
+REPO_URL="https://raw.githubusercontent.com/MithunWijayasiri/claudecode-statusline/main"
 
 # Colors
 GREEN='\033[0;32m'
@@ -28,31 +28,11 @@ fi
 # Create hooks directory if it doesn't exist
 mkdir -p "$HOOKS_DIR"
 
-# Prompt user for version choice
-echo "Which version would you like to install?"
-echo "  1) Full version (with API usage tracking)"
-echo "  2) Lite version (faster, no API calls)"
-echo ""
-read -p "Enter your choice (1 or 2): " choice
-
-case $choice in
-    1)
-        SCRIPT_NAME="statusline.js"
-        VERSION_NAME="Full version"
-        ;;
-    2)
-        SCRIPT_NAME="statusline-lite.js"
-        VERSION_NAME="Lite version"
-        ;;
-    *)
-        echo -e "${RED}Invalid choice. Exiting.${NC}"
-        exit 1
-        ;;
-esac
+SCRIPT_NAME="statusline.js"
 
 # Download the script
 echo ""
-echo -e "${YELLOW}Downloading $VERSION_NAME...${NC}"
+echo -e "${YELLOW}Downloading statusline...${NC}"
 
 if command -v curl &> /dev/null; then
     curl -fsSL "$REPO_URL/$SCRIPT_NAME" -o "$HOOKS_DIR/$SCRIPT_NAME"
@@ -138,13 +118,9 @@ echo "Next steps:"
 echo "  1. Restart Claude Code or start a new session"
 echo "  2. Your statusline should now be active!"
 echo ""
-echo "To switch versions:"
-echo "  - Run this installer again, or"
-echo "  - Edit ~/.claude/settings.json manually"
-echo ""
 echo "To uninstall:"
 echo "  - Remove ~/.claude/hooks/$SCRIPT_NAME"
 echo "  - Remove the 'statusLine' section from ~/.claude/settings.json"
 echo ""
-echo "For help, visit: https://github.com/TahaSabir0/claude-statusline"
+echo "For help, visit: https://github.com/MithunWijayasiri/claudecode-statusline"
 echo ""
