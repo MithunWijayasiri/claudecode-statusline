@@ -90,8 +90,10 @@ function runUninstall() {
   if (fs.existsSync(settingsFile)) {
     try {
       const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
-      const command = (settings.statusLine && settings.statusLine.command) || '';
-      if (settings.statusLine && command.includes('statusline.js')) {
+      const command = ((settings.statusLine && settings.statusLine.command) || '').replace(/\\/g, '/');
+      // Match our hook path only (covers absolute + manual `~` installs), not any statusline.js.
+      const isOurs = command.includes('/.claude/hooks/statusline.js');
+      if (settings.statusLine && isOurs) {
         const backup = `${settingsFile}.backup.${Date.now()}`;
         fs.copyFileSync(settingsFile, backup);
         delete settings.statusLine;
@@ -109,8 +111,13 @@ function runUninstall() {
 
   // 2. Delete the hook script
   if (fs.existsSync(scriptDest)) {
-    fs.unlinkSync(scriptDest);
-    console.log(`${green}✓ Deleted ${scriptDest}${reset}`);
+    try {
+      fs.unlinkSync(scriptDest);
+      console.log(`${green}✓ Deleted ${scriptDest}${reset}`);
+    } catch (e) {
+      console.log(`${red}✗ Could not delete ${scriptDest}: ${e.message}${reset}`);
+      console.log(`${yellow}  Remove it manually.${reset}`);
+    }
   } else {
     console.log(`${green}✓ No statusline.js found in hooks${reset}`);
   }
