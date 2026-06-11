@@ -5,6 +5,13 @@
   "bin": {
     "claudecode-statusline": "bin/install.js"
   },
+  "scripts": {
+    "test": "node --test",
+    "preview": "node scripts/preview.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "files": [
     "bin/",
     "statusline.js",
