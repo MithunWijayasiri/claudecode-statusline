@@ -1,5 +1,9 @@
-// Renders sample statuslines so CI logs show how it looks on each platform.
-// Not a test and not published — just a visual sanity check across OSes.
+// Renders one real statusline line (including the usage bar) so CI logs and the
+// GitHub release show what you actually get in the Claude Code CLI.
+//
+// The usage bar normally needs a live session. Here we seed a fresh usage cache
+// (+ a tokenless credentials file) in a throwaway HOME, so the real statusline.js
+// renders the usage segment from cache without any network call.
 
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -7,39 +11,40 @@ const os = require('node:os');
 const path = require('node:path');
 
 const SCRIPT = path.join(__dirname, '..', 'statusline.js');
-const FAKE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-preview-'));
-process.on('exit', () => fs.rmSync(FAKE_HOME, { recursive: true, force: true }));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-preview-'));
+process.on('exit', () => fs.rmSync(TMP, { recursive: true, force: true }));
 
-function render(input) {
+function render({ dir, model, remaining, usage, resetsInMin }) {
+  const home = fs.mkdtempSync(path.join(TMP, 'home-'));
+  const cacheDir = path.join(home, '.claude', 'cache');
+  fs.mkdirSync(cacheDir, { recursive: true });
+  fs.writeFileSync(path.join(home, '.claude', '.credentials.json'), '{}'); // no token -> no network
+  fs.writeFileSync(path.join(cacheDir, 'usage-cache.json'), JSON.stringify({
+    timestamp: Date.now(),                                  // fresh -> cache-first renders it
+    data: { percentage: usage, resetsAt: new Date(Date.now() + resetsInMin * 60000).toISOString() }
+  }));
+
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  delete env.ANTHROPIC_API_KEY;                             // let the usage path run
+
   const res = spawnSync(process.execPath, [SCRIPT], {
-    input,
+    input: JSON.stringify({
+      model: { display_name: model },
+      workspace: { current_dir: dir },
+      session_id: 'preview',
+      context_window: { remaining_percentage: remaining }
+    }),
     encoding: 'utf8',
     timeout: 5000,
-    env: { ...process.env, ANTHROPIC_API_KEY: 'preview', HOME: FAKE_HOME, USERPROFILE: FAKE_HOME }
+    env
   });
-  return res.stdout || '';
+  return (res.stdout || '').trim();
 }
 
-function fixture(remaining, dir, model) {
-  return JSON.stringify({
-    model: { display_name: model },
-    workspace: { current_dir: dir },
-    session_id: 'preview',
-    context_window: { remaining_percentage: remaining }
-  });
-}
-
-const scenarios = [
-  ['green   (20% used)', fixture(80, '/home/me/api-server', 'Haiku 4.5')],
-  ['yellow  (58% used)', fixture(42, '/home/me/web-app', 'Sonnet 4.6')],
-  ['orange  (72% used)', fixture(28, '/home/me/data-pipeline', 'Opus 4.8')],
-  ['red+skull (94% used)', fixture(6, '/home/me/big-refactor', 'Opus 4.8')],
-  ['fallback (no/invalid stdin)', '']
-];
-
-console.log(`\nStatusline preview — ${os.platform()} ${os.arch()}, node ${process.version}`);
-console.log('Note: the usage bar needs a live session and is not shown here.\n');
-for (const [label, input] of scenarios) {
-  console.log(`  ${label.padEnd(28)} ${render(input)}`);
-}
-console.log('');
+console.log(render({
+  dir: '/home/me/my-project',
+  model: 'Opus 4.8 (1M context)',
+  remaining: 100,   // context 0% used
+  usage: 14,
+  resetsInMin: 21   // renders ~(20m)
+}));
