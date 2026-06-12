@@ -28,12 +28,12 @@
   ],
   "author": "Mithun Wijayasiri",
   "license": "MIT",
-  "homepage": "https://github.com/MithunWijayasiri/claudecode-statusline#readme",
+  "homepage": "https://github.com/MithunWijayasiri/ctxline-claude#readme",
   "bugs": {
-    "url": "https://github.com/MithunWijayasiri/claudecode-statusline/issues"
+    "url": "https://github.com/MithunWijayasiri/ctxline-claude/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MithunWijayasiri/claudecode-statusline.git"
+    "url": "https://github.com/MithunWijayasiri/ctxline-claude.git"
   }
 }
