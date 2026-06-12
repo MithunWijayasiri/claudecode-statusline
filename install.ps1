@@ -1,4 +1,4 @@
-# Claude Code Enhanced Statusline - Windows PowerShell Installation Script
+﻿# Claude Code Enhanced Statusline - Windows PowerShell Installation Script
 
 $ErrorActionPreference = "Stop"
 
