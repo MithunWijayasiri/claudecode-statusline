@@ -163,6 +163,31 @@ function normalizePercentage(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+// Build usage bars from stdin `rate_limits` (Claude.ai Pro/Max, present only after the
+// first API response of a session). Same data as the OAuth usage API, so reading it here
+// skips the network/credentials/cache path entirely. `resets_at` is a Unix epoch in
+// SECONDS (not ISO) — ×1000 before Date. Returns { current, weekly } bars, or null when
+// rate_limits is absent or the required five_hour segment is unusable (caller falls back).
+function buildUsageFromStdin(data) {
+  const rl = data?.rate_limits;
+  if (!rl) return null;
+
+  const toEntry = (seg) => {
+    if (!seg) return null;
+    const pct = normalizePercentage(seg.used_percentage);
+    if (pct == null) return null;
+    return {
+      percentage: pct,
+      resetsAt: seg.resets_at ? new Date(seg.resets_at * 1000).toISOString() : null
+    };
+  };
+
+  const fiveHour = toEntry(rl.five_hour);
+  if (!fiveHour) return null;          // five_hour is the required bar
+  const weekly = toEntry(rl.seven_day);
+  return buildUsageBars(fiveHour, weekly);
+}
+
 // Validate a single usage entry ({ percentage, resetsAt }). Returns true only for a
 // finite 0-100 percentage and a parseable (or absent) resetsAt.
 function isValidUsageEntry(entry) {
@@ -393,21 +418,45 @@ function outputFallback(usage) {
   process.stdout.write(parts.join(' \u2502 '));
 }
 
-// Wrapper that skips usage fetch for API key users
-function getUsage(callback) {
+// Resolve usage bars for a (possibly null) parsed stdin payload.
+// Order: API-key users get none; otherwise prefer stdin `rate_limits` (no network),
+// then fall back to the cache+API flow when stdin lacks it (cold start / non-Pro/Max).
+function resolveUsage(data, callback) {
   if (IS_API_KEY) {
-    callback(null);
-  } else {
-    getUsageWithCache(callback);
+    return callback(null);
   }
+  const fromStdin = buildUsageFromStdin(data);
+  if (fromStdin) {
+    return callback(fromStdin);
+  }
+  getUsageWithCache(callback);
 }
 
 // Process with timeout
-if (process.stdin.isTTY) {
-  getUsage((usage) => {
-    outputFallback(usage);
+// Parse the accumulated stdin into a payload object, or null if empty/unparseable.
+function parseInput(input) {
+  if (!input || input.length === 0) return null;
+  try {
+    return JSON.parse(input);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Resolve usage for `data` (preferring stdin rate_limits), then render and exit.
+function emit(data) {
+  resolveUsage(data, (usage) => {
+    if (data) {
+      outputStatus(data, usage);
+    } else {
+      outputFallback(usage);
+    }
     process.exit(0);
   });
+}
+
+if (process.stdin.isTTY) {
+  emit(null);
 } else {
   let input = '';
   let timeoutReached = false;
@@ -416,19 +465,7 @@ if (process.stdin.isTTY) {
 
   const timeout = setTimeout(() => {
     timeoutReached = true;
-    getUsage((usage) => {
-      if (input.length > 0) {
-        try {
-          const data = JSON.parse(input);
-          outputStatus(data, usage);
-        } catch (e) {
-          outputFallback(usage);
-        }
-      } else {
-        outputFallback(usage);
-      }
-      process.exit(0);
-    });
+    emit(parseInput(input));
   }, overallTimeout);
 
   process.stdin.setEncoding('utf8');
@@ -436,15 +473,6 @@ if (process.stdin.isTTY) {
   process.stdin.on('end', () => {
     if (timeoutReached) return;
     clearTimeout(timeout);
-
-    getUsage((usage) => {
-      try {
-        const data = JSON.parse(input);
-        outputStatus(data, usage);
-      } catch (e) {
-        outputFallback(usage);
-      }
-      process.exit(0);
-    });
+    emit(parseInput(input));
   });
 }
