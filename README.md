@@ -12,10 +12,10 @@
     <img src="https://img.shields.io/npm/dm/ctxline-claude" alt="npm downloads">
   </a>
   <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/MithunWijayasiri/claudecode-statusline" alt="license">
+    <img src="https://img.shields.io/github/license/MithunWijayasiri/ctxline-claude" alt="license">
   </a>
-  <a href="https://github.com/MithunWijayasiri/claudecode-statusline/stargazers">
-    <img src="https://img.shields.io/github/stars/MithunWijayasiri/claudecode-statusline" alt="stars">
+  <a href="https://github.com/MithunWijayasiri/ctxline-claude/stargazers">
+    <img src="https://img.shields.io/github/stars/MithunWijayasiri/ctxline-claude" alt="stars">
   </a>
 </p>
 
@@ -43,8 +43,8 @@ Then restart Claude Code or start a new session. That's it.
 **Clone & run the installer:**
 
 ```bash
-git clone https://github.com/MithunWijayasiri/claudecode-statusline.git
-cd claudecode-statusline
+git clone https://github.com/MithunWijayasiri/ctxline-claude.git
+cd ctxline-claude
 ./install.sh      # macOS / Linux
 ./install.ps1     # Windows (PowerShell)
 ```
@@ -52,7 +52,7 @@ cd claudecode-statusline
 **Manual:** download the script, then point `~/.claude/settings.json` at it.
 
 ```bash
-curl -o ~/.claude/hooks/statusline.js https://raw.githubusercontent.com/MithunWijayasiri/claudecode-statusline/main/statusline.js
+curl -o ~/.claude/hooks/statusline.js https://raw.githubusercontent.com/MithunWijayasiri/ctxline-claude/main/statusline.js
 chmod +x ~/.claude/hooks/statusline.js
 ```
 

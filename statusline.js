@@ -2,7 +2,7 @@
 // Claude Code Enhanced Statusline
 // Shows: directory | model | context usage | current (5-hour) + weekly usage | current task
 // Auto-detects API key vs subscription usage
-// https://github.com/MithunWijayasiri/claudecode-statusline
+// https://github.com/MithunWijayasiri/ctxline-claude
 
 const fs = require('fs');
 const path = require('path');

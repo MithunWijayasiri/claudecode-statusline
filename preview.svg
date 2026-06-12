@@ -21,7 +21,7 @@
     <circle cx="60" cy="21" r="6" fill="#61c554"></circle>
 
     
-    <text x="640" y="26" text-anchor="middle" font-size="13" fill="#7d8590" letter-spacing="0.3">claudecode-statusline — zsh — 120×30</text>
+    <text x="640" y="26" text-anchor="middle" font-size="13" fill="#7d8590" letter-spacing="0.3">ctxline-claude — zsh — 120×30</text>
 
     
     <text x="30" y="82" font-size="15" fill="#6e7681"># a configurable statusline for Claude Code</text>
