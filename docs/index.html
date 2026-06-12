@@ -128,6 +128,18 @@
   .bar i{width:6px;height:12px;border-radius:1.5px;background:var(--green-dim);display:inline-block}
   .bar i.on{background:var(--green)}
 
+  /* hero statusline scrolls horizontally whenever it would crop (no scrollbar), at any width.
+     `safe center` keeps it centered when it fits, left-aligned + scrollable when it doesn't
+     (plain center clips the left edge unreachably). Scoped to .hero .term — the inspector
+     term (.inspect .term) wraps instead. Desktop is unchanged: when the line fits there is
+     no scroll, and the fade sits over empty term-bg so it stays invisible until content reaches it. */
+  .hero .term{position:relative;overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:none;-ms-overflow-style:none}
+  .hero .term::-webkit-scrollbar{display:none}
+  .hero .term .line{justify-content:safe center}
+  .hero .term::after{content:"";position:absolute;top:0;right:0;bottom:0;width:34px;pointer-events:none;
+    background:linear-gradient(to right,transparent,var(--term-bg))}
+
   .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:40px}
   .btn{
     font-family:var(--mono);font-size:14px;font-weight:500;
@@ -281,9 +293,8 @@
     <div class="brand"><span class="pulse"></span> <b>ctxline</b>&nbsp;· claude</div>
     <div class="links">
       <a href="#features">Features</a>
-      <a href="#install">Install</a>
       <a href="#how">How it works</a>
-      <a href="https://www.npmjs.com/package/ctxline-claude" target="_blank" rel="noopener">More info ↗</a>
+      <a href="https://www.npmjs.com/package/ctxline-claude" target="_blank" rel="noopener">npm ↗</a>
       <a href="https://github.com/MithunWijayasiri/ctxline-claude">GitHub ↗</a>
     </div>
   </nav>
