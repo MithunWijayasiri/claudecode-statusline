@@ -14,18 +14,22 @@ const SCRIPT = path.join(__dirname, '..', 'statusline.js');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-preview-'));
 process.on('exit', () => fs.rmSync(TMP, { recursive: true, force: true }));
 
-function render({ dir, model, remaining, current, currentResetsInMin, weekly, weeklyResetsInMin, branch, effort }) {
+function render({ dir, model, remaining, current, currentResetsInMin, weekly, weeklyResetsInMin, branch, effort, rateLimits }) {
   const home = fs.mkdtempSync(path.join(TMP, 'home-'));
   const cacheDir = path.join(home, '.claude', 'cache');
   fs.mkdirSync(cacheDir, { recursive: true });
-  fs.writeFileSync(path.join(home, '.claude', '.credentials.json'), '{}'); // no token -> no network
-  fs.writeFileSync(path.join(cacheDir, 'usage-cache.json'), JSON.stringify({
-    timestamp: Date.now(),                                  // fresh -> cache-first renders it
-    data: {
-      fiveHour: { percentage: current, resetsAt: new Date(Date.now() + currentResetsInMin * 60000).toISOString() },
-      weekly: { percentage: weekly, resetsAt: new Date(Date.now() + weeklyResetsInMin * 60000).toISOString() }
-    }
-  }));
+  // rateLimits scenario seeds neither creds nor cache, proving the stdin path bypasses
+  // the network/cache flow entirely. Otherwise seed a fresh cache (cache-first renders it).
+  if (!rateLimits) {
+    fs.writeFileSync(path.join(home, '.claude', '.credentials.json'), '{}'); // no token -> no network
+    fs.writeFileSync(path.join(cacheDir, 'usage-cache.json'), JSON.stringify({
+      timestamp: Date.now(),                                  // fresh -> cache-first renders it
+      data: {
+        fiveHour: { percentage: current, resetsAt: new Date(Date.now() + currentResetsInMin * 60000).toISOString() },
+        weekly: { percentage: weekly, resetsAt: new Date(Date.now() + weeklyResetsInMin * 60000).toISOString() }
+      }
+    }));
+  }
 
   // Real on-disk dir with a seeded .git/HEAD so the branch segment renders (statusline.js
   // reads .git/HEAD directly). basename(currentDir) keeps the displayed dir name.
@@ -42,7 +46,8 @@ function render({ dir, model, remaining, current, currentResetsInMin, weekly, we
       workspace: { current_dir: projectDir },
       session_id: 'preview',
       context_window: { remaining_percentage: remaining },
-      effort: { level: effort }
+      effort: { level: effort },
+      ...(rateLimits ? { rate_limits: rateLimits } : {})
     }),
     encoding: 'utf8',
     timeout: 5000,
@@ -78,3 +83,16 @@ console.log('\nThinking-effort levels:');
 for (const effort of ['xhigh', 'max', 'ultracode']) {
   console.log(`  ${effort.padEnd(9)} ${render({ ...base, effort })}`);
 }
+
+// Usage from stdin `rate_limits` (Pro/Max post-first-response): no cache, no creds.
+// resets_at is a Unix epoch in seconds. Renders the same 5h/7d bars as the cache path.
+const nowSec = Math.floor(Date.now() / 1000);
+console.log('\nUsage from stdin rate_limits (no cache / no creds):');
+console.log('  ' + render({
+  ...base,
+  effort: 'high',
+  rateLimits: {
+    five_hour: { used_percentage: base.current, resets_at: nowSec + base.currentResetsInMin * 60 },
+    seven_day: { used_percentage: base.weekly, resets_at: nowSec + base.weeklyResetsInMin * 60 }
+  }
+}));

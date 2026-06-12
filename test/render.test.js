@@ -66,6 +66,22 @@ function fixture(remaining, dir = '/tmp/myproject', model = 'Opus 4.8', effort) 
   return JSON.stringify(obj);
 }
 
+// stdin payload carrying `rate_limits` (Claude.ai Pro/Max, post-first-response).
+// resets_at is a Unix epoch in SECONDS. 5h ~2h out, 7d ~62h out (exercises day-aware countdown).
+function fixtureWithRateLimits(remaining, { five = 23.5, seven = 41.2 } = {}) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  return JSON.stringify({
+    model: { display_name: 'Opus 4.8' },
+    workspace: { current_dir: '/tmp/myproject' },
+    session_id: 'test-session',
+    context_window: { remaining_percentage: remaining },
+    rate_limits: {
+      five_hour: { used_percentage: five, resets_at: nowSec + 2 * 3600 },
+      seven_day: { used_percentage: seven, resets_at: nowSec + 62 * 3600 }
+    }
+  });
+}
+
 // Make a real dir with a seeded .git/HEAD so the branch segment renders deterministically.
 function seedRepo(branch = 'feature/x') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-repo-'));
@@ -256,4 +272,24 @@ test('expired cache + failing API -> usage omitted', () => {
   assert.ok(clean.includes('CTX'), 'expected the normal line to still render');
   assert.ok(!clean.includes('5h '), 'current usage should be omitted once cache is too old');
   assert.ok(!clean.includes('7d '), 'weekly usage should be omitted once cache is too old');
+});
+
+// Usage from stdin `rate_limits`: the network/cache path is bypassed entirely.
+
+test('stdin rate_limits -> 5h/7d render with no cache and no creds', () => {
+  // FAKE_HOME has neither a usage cache nor a credentials file, so the only way usage
+  // can render is straight from stdin rate_limits (proves the API/cache path is skipped).
+  const { code, clean } = run(fixtureWithRateLimits(40), { usage: true });
+  assert.strictEqual(code, 0);
+  assert.match(clean, /5h .* 24%/);                             // 23.5 -> 24 (fractional, rounded)
+  assert.match(clean, /7d .* 41%/);                             // 41.2 -> 41
+  assert.match(clean, /7d .* 41% \(2d\d{1,2}h\)/);              // epoch-seconds -> day-aware countdown
+});
+
+test('stdin rate_limits takes precedence over a fresh cache', () => {
+  // Fresh cache says 42% / 31%; stdin says 23.5% / 41.2%. stdin must win (cache not read).
+  const home = seedHome({ cacheAgeMs: 5000, percentage: 42, weeklyPercentage: 31 });
+  const { clean } = run(fixtureWithRateLimits(40), { home, usage: true });
+  assert.match(clean, /5h .* 24%/);
+  assert.ok(!clean.includes('42%'), 'cached 5h value must not appear when stdin rate_limits is present');
 });

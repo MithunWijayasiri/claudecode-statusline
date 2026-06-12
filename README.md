@@ -110,9 +110,10 @@ Remove-Item "$env:USERPROFILE\.claude\cache\usage-cache.json" -ErrorAction Silen
 
 ## How it works
 
-- **Source** — context comes from Claude Code's session data; both usage bars are fetched from `https://api.anthropic.com/api/oauth/usage` (the `/usage` data — 5-hour and weekly limits). API-key users skip the usage fetch.
-- **Adaptive timing** — 1.5s timeout on the first prompt (cold start), 1.2s after (connection reused).
-- **Caching** — usage is cached at `~/.claude/cache/usage-cache.json`, shared across sessions. Within 30s the cache renders directly (the API call is skipped); if a live call fails, the last value (up to 10 min old) is shown so the bar never vanishes. The reset countdown recomputes every render.
+- **Source** — context comes from Claude Code's session data. Usage bars are read straight from the `rate_limits` field Claude Code pipes in (no network), falling back to `https://api.anthropic.com/api/oauth/usage` (the same `/usage` data — 5-hour and weekly limits) when that field isn't present yet. API-key users skip usage entirely.
+- **No network on the fast path** — when `rate_limits` is in the session data, there's no API call at all. The fetch below only runs as a fallback (e.g. the first render of a session, before the field appears).
+- **Adaptive timing** — for the fallback fetch: 1.5s timeout on the first prompt (cold start), 1.2s after (connection reused).
+- **Caching** — the fallback fetch is cached at `~/.claude/cache/usage-cache.json`, shared across sessions. Within 30s the cache renders directly (the API call is skipped); if a live call fails, the last value (up to 10 min old) is shown so the bar never vanishes. The reset countdown recomputes every render.
 - **Never breaks** — every failure path falls back silently; the statusline always prints.
 
 ## FAQ
@@ -120,7 +121,7 @@ Remove-Item "$env:USERPROFILE\.claude\cache\usage-cache.json" -ErrorAction Silen
 <details>
 <summary>Does this use the same data as /usage?</summary>
 
-Yes. Usage information comes directly from Anthropic's usage API.
+Yes — the same 5-hour and weekly limits. It reads them from the session data Claude Code provides when available, and falls back to Anthropic's usage API (the endpoint `/usage` uses) otherwise.
 
 </details>
 
@@ -141,7 +142,7 @@ No. All failures are handled silently and the statusline always renders.
 <details>
 <summary>Does it expose my API keys / auth tokens?</summary>
 
-No. Your credentials never leave your machine. The OAuth token is read locally (from `~/.claude/.credentials.json` or the macOS keychain) only to authenticate the request to Anthropic's own usage API — the same endpoint `/usage` uses. Nothing is sent to any third party, logged, or cached; only the resulting usage percentages are stored locally.
+No. Your credentials never leave your machine. On the fast path no token is read at all — usage comes straight from the session data. Only on the fallback fetch is the OAuth token read locally (from `~/.claude/.credentials.json` or the macOS keychain), used solely to authenticate the request to Anthropic's own usage API — the same endpoint `/usage` uses. Nothing is sent to any third party, logged, or cached; only the resulting usage percentages are stored locally.
 
 </details>
 
