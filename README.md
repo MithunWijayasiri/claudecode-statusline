@@ -105,8 +105,8 @@ Remove-Item "$env:USERPROFILE\.claude\cache\usage-cache.json" -ErrorAction Silen
 | **Weekly** | Weekly usage allowance + time until the weekly reset (subscription users) |
 | **Task** | The in-progress todo, when there is one |
 
-> \[!NOTE\] Usage bars change color automatically as you approach your
-> limits.
+> [!NOTE]
+> Usage bars change color automatically as you approach your limits.
 
 ## How it works
 
