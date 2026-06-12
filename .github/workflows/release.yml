@@ -45,7 +45,9 @@ jobs:
         run: npm publish
 
       - name: Render statusline preview
-        run: node scripts/preview.js | perl -pe 's/\x1b\[[0-9;]*m//g' > preview.txt
+        # preview.js prints several scenarios for the CI visual sync-check; 
+        # the release body only wants the primary line (first line), colors stripped.
+        run: node scripts/preview.js | perl -pe 's/\x1b\[[0-9;]*m//g' | head -n 1 > preview.txt
 
       - name: Create release
         env:

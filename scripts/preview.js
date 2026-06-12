@@ -74,7 +74,8 @@ const base = {
   weeklyResetsInMin: 3720    // renders ~(2d14h)
 };
 
-// Primary line (default effort).
+// Primary line (default effort). NOTE: this MUST stay the first printed line —
+// the release workflow takes only line 1 (`head -n 1`) for the GitHub release body.
 console.log(render({ ...base, effort: 'high' }));
 
 // Thinking-effort color variants: only the top two levels are highlighted.
