@@ -176,10 +176,16 @@ function buildUsageFromStdin(data) {
     if (!seg) return null;
     const pct = normalizePercentage(seg.used_percentage);
     if (pct == null) return null;
-    return {
-      percentage: pct,
-      resetsAt: seg.resets_at ? new Date(seg.resets_at * 1000).toISOString() : null
-    };
+    // resets_at is a Unix epoch in SECONDS. Coerce + validate defensively: a non-numeric
+    // or out-of-range value would make new Date(...).toISOString() throw, and this path
+    // runs outside outputStatus's try/catch. Fall back to resetsAt: null on anything bad.
+    let resetsAt = null;
+    const epoch = Number(seg.resets_at);
+    if (Number.isFinite(epoch) && epoch > 0) {
+      const d = new Date(epoch * 1000);
+      if (!Number.isNaN(d.getTime())) resetsAt = d.toISOString();
+    }
+    return { percentage: pct, resetsAt };
   };
 
   const fiveHour = toEntry(rl.five_hour);
